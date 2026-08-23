@@ -1187,47 +1187,81 @@ function generateHomePage(input, runtimeConfig) {
 
     .command-area {
       margin: 0;
-      padding: 6px;
-      border: 1px solid var(--line-strong);
-      border-radius: 13px;
-      background: var(--surface-strong);
-      box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--surface) 50%, transparent), var(--shadow-sm);
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: var(--surface-soft);
     }
     .url-form {
       display: grid;
-      grid-template-columns: auto minmax(0, 1fr) auto auto;
-      gap: 6px;
-      align-items: center;
+      gap: 10px;
     }
-    .form-actions {
+    .input-label-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 8px 14px;
+    }
+    .input-label {
       display: flex;
       align-items: center;
       gap: 8px;
+      color: var(--ink-soft);
+      font-size: .82rem;
+      font-weight: 800;
     }
+    .input-label-note { color: var(--muted); font-family: var(--mono); font-size: .66rem; font-weight: 600; }
+    .input-action-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; }
+    .url-field {
+      min-width: 0;
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      align-items: center;
+      border: 1px solid var(--line-strong);
+      border-radius: 12px;
+      background: var(--surface-strong);
+      box-shadow: var(--shadow-sm);
+      transition: border-color .16s ease, box-shadow .16s ease, background .16s ease;
+    }
+    .url-field:focus-within {
+      border-color: var(--blue);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--blue) 18%, transparent);
+    }
+    .url-field:has(.url-input[aria-invalid="true"]) { border-color: var(--danger); background: var(--danger-soft); }
     .input-prefix {
-      padding-left: 9px;
-      color: var(--muted);
+      width: 38px;
+      height: 38px;
+      display: grid;
+      place-items: center;
+      margin-left: 7px;
+      border-radius: 9px;
+      color: var(--blue);
+      background: var(--blue-soft);
       font-family: var(--mono);
-      font-size: .86rem;
+      font-size: .68rem;
       font-weight: 800;
       user-select: none;
     }
     .url-input {
       width: 100%;
       min-width: 0;
-      height: 48px;
-      padding: 0 7px;
+      height: 54px;
+      padding: 0 10px;
       border: 0;
-      border-radius: 8px;
       color: var(--ink);
       background: transparent;
       outline: none;
+      caret-color: var(--blue);
     }
     .url-input::placeholder { color: var(--muted); opacity: .78; }
-    .url-input[aria-invalid="true"] { background: var(--danger-soft); }
+    .url-input[aria-invalid="true"] { background: transparent; }
+    @supports not selector(:has(*)) {
+      .url-input[aria-invalid="true"] { border-radius: 8px; box-shadow: inset 0 0 0 2px var(--danger); }
+    }
     .clear-button {
-      width: 38px;
-      height: 38px;
+      width: 44px;
+      height: 44px;
       display: grid;
       place-items: center;
       border: 0;
@@ -1256,12 +1290,11 @@ function generateHomePage(input, runtimeConfig) {
     .primary-button:hover { border-color: var(--accent-strong); background: var(--accent-strong); }
     .primary-button:active { filter: brightness(.92); }
     .primary-button:disabled { cursor: wait; opacity: .65; }
-    .command-meta {
-      padding: 10px 2px 0;
-    }
+    .input-submit { min-height: 56px; min-inline-size: 146px; padding-inline: 22px; border-radius: 12px; }
     .form-hint {
       min-height: 1.5em;
       margin: 0;
+      padding-inline: 2px;
       color: var(--muted);
       font-size: .83rem;
     }
@@ -1692,9 +1725,8 @@ function generateHomePage(input, runtimeConfig) {
       .hero-grid { gap: 36px; }
       h1 { font-size: clamp(2.65rem, 12vw, 4rem); }
       .command-panel { padding: 22px; }
-      .url-form { grid-template-columns: auto minmax(0, 1fr) auto; }
-      .form-actions { grid-column: 1 / -1; }
-      .form-actions .primary-button { flex: 1 1 auto; }
+      .input-action-row { grid-template-columns: 1fr; }
+      .input-submit { width: 100%; }
       .feature-strip { grid-template-columns: 1fr; margin-top: 48px; }
       .feature-item { min-height: 0; }
       .proxy-grid { grid-template-columns: 1fr; }
@@ -1714,6 +1746,9 @@ function generateHomePage(input, runtimeConfig) {
       .command-head { gap: 12px; }
       .command-tools { margin-left: auto; }
       .command-note { display: none; }
+      .command-panel { padding: 18px; }
+      .command-area { padding: 14px; }
+      .input-label-note { display: none; }
       .panel { border-radius: 21px; }
       .panel-header { display: grid; }
       .panel-header > .badge { justify-self: start; }
@@ -1731,9 +1766,7 @@ function generateHomePage(input, runtimeConfig) {
 
     @media (max-width: 360px) {
       .highlight { white-space: normal; }
-      .form-actions { flex-wrap: wrap; }
-      .form-actions .input-kind { margin-left: auto; }
-      .form-actions .primary-button { flex-basis: 100%; }
+      .input-label-row { align-items: flex-start; flex-direction: column; }
     }
 
     @media (prefers-reduced-motion: reduce) {
@@ -1770,24 +1803,26 @@ function generateHomePage(input, runtimeConfig) {
           </div>
           <div class="command-area">
             <form id="url-form" class="url-form" autocomplete="off" novalidate>
-              <label for="url-input" hidden>GitHub 仓库或资源 URL</label>
-              <span class="input-prefix" aria-hidden="true">URL</span>
-              <input id="url-input" class="url-input" name="github-resource-url" type="url" inputmode="url" autocomplete="off" aria-autocomplete="none" autocapitalize="off" spellcheck="false" placeholder="https://github.com/owner/repo" aria-describedby="input-hint" required>
-              <button id="clear-input" class="clear-button" type="button" aria-label="清空输入" title="清空输入" hidden>×</button>
-              <div class="form-actions">
+              <div class="input-label-row">
+                <label class="input-label" for="url-input"><span>GitHub URL</span><span class="input-label-note" aria-hidden="true">公开仓库或资源链接</span></label>
                 <span id="input-kind" class="input-kind">等待输入</span>
-                <button id="submit-button" class="primary-button" type="submit">识别并继续 →</button>
               </div>
-            </form>
-            <div class="command-meta">
+              <div class="input-action-row">
+                <div class="url-field">
+                  <span class="input-prefix" aria-hidden="true">GH</span>
+                  <input id="url-input" class="url-input" name="github-resource-url" type="url" inputmode="url" autocomplete="off" aria-autocomplete="none" autocapitalize="off" spellcheck="false" placeholder="https://github.com/owner/repo" aria-describedby="input-hint" required>
+                  <button id="clear-input" class="clear-button" type="button" aria-label="清空输入" title="清空输入" hidden>×</button>
+                </div>
+                <button id="submit-button" class="primary-button input-submit" type="submit">识别并继续 →</button>
+              </div>
               <p id="input-hint" class="form-hint" aria-live="polite">支持公开仓库，以及常见 GitHub 下载与源码资源。</p>
-            </div>
+            </form>
           </div>
 
           <div class="quick-links" aria-label="示例链接">
-            <span class="quick-label">快速试用</span>
-            <button class="example-button" type="button" data-example="https://github.com/cloudflare/workers-sdk">仓库示例</button>
-            <button class="example-button" type="button" data-example="https://raw.githubusercontent.com/cloudflare/workers-sdk/main/README.md">Raw 示例</button>
+            <span class="quick-label">试试看</span>
+            <button class="example-button" type="button" data-example="https://github.com/cloudflare/workers-sdk">公开仓库</button>
+            <button class="example-button" type="button" data-example="https://raw.githubusercontent.com/cloudflare/workers-sdk/main/README.md">Raw 文件</button>
             <span class="quick-label">按 <kbd>/</kbd> 聚焦</span>
           </div>
 
@@ -1960,8 +1995,9 @@ function generateHomePage(input, runtimeConfig) {
     }
 
     function setInputHint(message, kind) {
-      inputHint.textContent = message;
-      inputHint.className = "form-hint" + (kind ? " " + kind : "");
+      var nextClass = "form-hint" + (kind ? " " + kind : "");
+      if (inputHint.textContent !== message) inputHint.textContent = message;
+      if (inputHint.className !== nextClass) inputHint.className = nextClass;
     }
 
     function setInputKind(label, valid) {
