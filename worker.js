@@ -1028,72 +1028,9 @@ function generateHomePage(input, runtimeConfig) {
     }
     .skip-link:focus { transform: translateY(0); }
 
-    .site-header {
-      position: sticky;
-      z-index: 30;
-      top: 0;
-      border-bottom: 1px solid color-mix(in srgb, var(--line) 78%, transparent);
-      background: color-mix(in srgb, var(--page) 88%, transparent);
-      backdrop-filter: blur(16px) saturate(1.15);
-    }
     .shell {
       width: min(1240px, calc(100% - 48px));
       margin-inline: auto;
-    }
-    .header-inner {
-      min-height: 64px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 20px;
-    }
-    .brand {
-      display: inline-flex;
-      align-items: center;
-      gap: 11px;
-      color: var(--ink);
-      text-decoration: none;
-    }
-    .brand-mark {
-      width: 36px;
-      height: 36px;
-      display: grid;
-      place-items: center;
-      border: 1px solid var(--line);
-      border-radius: 10px;
-      color: var(--ink);
-      background: var(--surface-strong);
-      box-shadow: var(--shadow-sm);
-      font-family: var(--mono);
-      font-size: .79rem;
-      font-weight: 900;
-      letter-spacing: -.08em;
-    }
-    .brand-copy { display: grid; line-height: 1.05; }
-    .brand-name { font-size: .98rem; font-weight: 750; letter-spacing: -.015em; }
-    .brand-tagline {
-      margin-top: 4px;
-      color: var(--muted);
-      font-family: var(--mono);
-      font-size: .66rem;
-      letter-spacing: .02em;
-      text-transform: uppercase;
-    }
-    .header-actions { display: flex; align-items: center; gap: 10px; }
-    .service-state {
-      display: inline-flex;
-      align-items: center;
-      gap: 7px;
-      color: var(--muted);
-      font-family: var(--mono);
-      font-size: .72rem;
-    }
-    .service-dot {
-      width: 7px;
-      height: 7px;
-      border-radius: 50%;
-      background: var(--success);
-      box-shadow: 0 0 0 3px color-mix(in srgb, var(--success) 14%, transparent);
     }
     .icon-button {
       width: 40px;
@@ -1230,8 +1167,13 @@ function generateHomePage(input, runtimeConfig) {
       line-height: 1.18;
       letter-spacing: -.035em;
     }
-    .command-note {
+    .command-tools {
       flex: 0 0 auto;
+      display: flex;
+      align-items: center;
+      gap: 11px;
+    }
+    .command-note {
       display: inline-flex;
       align-items: center;
       gap: 6px;
@@ -1241,38 +1183,6 @@ function generateHomePage(input, runtimeConfig) {
       font-size: .67rem;
     }
     .command-note::before { color: var(--success); content: "●"; font-size: .58rem; }
-    .route-grid {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 10px;
-      margin-top: 20px;
-    }
-    .route-card {
-      min-width: 0;
-      display: grid;
-      grid-template-columns: 34px minmax(0, 1fr);
-      gap: 10px;
-      align-items: center;
-      padding: 12px;
-      border: 1px solid var(--line);
-      border-radius: var(--radius-sm);
-      background: var(--surface-soft);
-    }
-    .route-icon {
-      width: 34px;
-      height: 34px;
-      display: grid;
-      place-items: center;
-      border: 1px solid var(--line);
-      border-radius: 9px;
-      color: var(--blue);
-      background: var(--surface-strong);
-      font-family: var(--mono);
-      font-size: .68rem;
-      font-weight: 800;
-    }
-    .route-card strong { display: block; font-size: .84rem; }
-    .route-card span { display: block; margin-top: 1px; color: var(--muted); font-size: .72rem; }
 
     .command-area {
       margin: 0;
@@ -1742,7 +1652,6 @@ function generateHomePage(input, runtimeConfig) {
     @media (max-width: 720px) {
       .shell { width: min(100% - 24px, 1240px); }
       main { padding-top: 40px; }
-      .service-state { display: none; }
       .hero-grid { gap: 36px; }
       h1 { font-size: clamp(2.65rem, 12vw, 4rem); }
       .command-panel { padding: 22px; }
@@ -1764,10 +1673,9 @@ function generateHomePage(input, runtimeConfig) {
     }
 
     @media (max-width: 520px) {
-      .brand-tagline { display: none; }
-      .command-head { display: grid; gap: 7px; }
-      .command-note { margin-top: 0; }
-      .route-grid { grid-template-columns: 1fr; }
+      .command-head { gap: 12px; }
+      .command-tools { margin-left: auto; }
+      .command-note { display: none; }
       .command-meta { display: grid; gap: 7px; }
       .panel { border-radius: 21px; }
       .panel-header { display: grid; }
@@ -1791,22 +1699,6 @@ function generateHomePage(input, runtimeConfig) {
 </head>
 <body>
   <a class="skip-link" href="#main-content">跳到主要内容</a>
-  <header class="site-header">
-    <div class="shell header-inner">
-      <a class="brand" href="./" aria-label="Passage 首页">
-        <span class="brand-mark" aria-hidden="true">GH/</span>
-        <span class="brand-copy">
-          <span class="brand-name">Passage</span>
-          <span class="brand-tagline">proxy · inspect · fetch</span>
-        </span>
-      </a>
-      <div class="header-actions">
-        <span class="service-state"><span class="service-dot" aria-hidden="true"></span>服务就绪</span>
-        <button id="theme-toggle" class="icon-button" type="button" aria-label="切换为深色主题" title="切换主题">◐</button>
-      </div>
-    </div>
-  </header>
-
   <main id="main-content" class="shell">
     <section class="hero" aria-labelledby="page-title">
       <div class="hero-grid">
@@ -1826,13 +1718,16 @@ function generateHomePage(input, runtimeConfig) {
               <span class="command-kicker">Paste · Detect · Go</span>
               <h2>粘贴 GitHub 链接</h2>
             </div>
-            <span class="command-note">浏览器本地识别</span>
+            <div class="command-tools">
+              <span class="command-note">浏览器本地识别</span>
+              <button id="theme-toggle" class="icon-button" type="button" aria-label="切换为深色主题" title="切换主题">◐</button>
+            </div>
           </div>
           <div class="command-area">
-            <form id="url-form" class="url-form" novalidate>
+            <form id="url-form" class="url-form" autocomplete="off" novalidate>
               <label for="url-input" hidden>GitHub 仓库或资源 URL</label>
               <span class="input-prefix" aria-hidden="true">URL</span>
-              <input id="url-input" class="url-input" type="url" inputmode="url" autocomplete="url" autocapitalize="off" spellcheck="false" placeholder="https://github.com/owner/repo" aria-describedby="input-hint" required>
+              <input id="url-input" class="url-input" name="github-resource-url" type="url" inputmode="url" autocomplete="off" aria-autocomplete="none" autocapitalize="off" spellcheck="false" placeholder="https://github.com/owner/repo" aria-describedby="input-hint" required>
               <button id="clear-input" class="clear-button" type="button" aria-label="清空输入" title="清空输入" hidden>×</button>
               <button id="submit-button" class="primary-button" type="submit">识别并继续 →</button>
             </form>
@@ -1849,10 +1744,6 @@ function generateHomePage(input, runtimeConfig) {
             <span class="quick-label">按 <kbd>/</kbd> 聚焦</span>
           </div>
 
-          <div class="route-grid" aria-label="支持的处理方式">
-            <div class="route-card"><span class="route-icon" aria-hidden="true">DIR</span><div><strong>公开仓库</strong><span>浏览概览、版本与文件树</span></div></div>
-            <div class="route-card"><span class="route-icon" aria-hidden="true">URL</span><div><strong>资源链接</strong><span>生成同站代理地址</span></div></div>
-          </div>
         </div>
       </div>
     </section>
