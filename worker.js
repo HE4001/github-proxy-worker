@@ -895,32 +895,32 @@ function generateHomePage(input, runtimeConfig) {
   <style>
     :root {
       color-scheme: light;
-      --page: #f1f0eb;
-      --page-deep: #e9e7df;
-      --surface: #fbfaf6;
+      --page: #f6f8fa;
+      --page-deep: #eef1f4;
+      --surface: #ffffff;
       --surface-strong: #ffffff;
-      --surface-soft: #f4f3ee;
-      --ink: #171815;
-      --ink-soft: #4e514a;
-      --muted: #73766e;
-      --line: #d9d7ce;
-      --line-strong: #bcb9ae;
-      --accent: #c9f43d;
-      --accent-strong: #add822;
-      --accent-ink: #1b2500;
-      --blue: #315efb;
-      --blue-soft: #e8edff;
-      --success: #087f5b;
-      --success-soft: #e6f6ef;
-      --warning: #9a5a00;
-      --warning-soft: #fff4d6;
-      --danger: #b42318;
+      --surface-soft: #f6f8fa;
+      --ink: #1f2328;
+      --ink-soft: #424a53;
+      --muted: #656d76;
+      --line: #d0d7de;
+      --line-strong: #afb8c1;
+      --accent: #1f883d;
+      --accent-strong: #1a7f37;
+      --accent-ink: #ffffff;
+      --blue: #0969da;
+      --blue-soft: #ddf4ff;
+      --success: #1a7f37;
+      --success-soft: #dafbe1;
+      --warning: #9a6700;
+      --warning-soft: #fff8c5;
+      --danger: #cf222e;
       --danger-soft: #ffebe9;
-      --shadow-sm: 0 1px 2px rgba(20, 22, 18, .05);
-      --shadow: 0 20px 60px rgba(31, 33, 28, .09);
-      --radius-lg: 28px;
-      --radius: 18px;
-      --radius-sm: 12px;
+      --shadow-sm: 0 1px 2px rgba(31, 35, 40, .08);
+      --shadow: 0 16px 42px rgba(31, 35, 40, .10);
+      --radius-lg: 20px;
+      --radius: 14px;
+      --radius-sm: 10px;
       --mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
       --sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       font-family: var(--sans);
@@ -928,27 +928,27 @@ function generateHomePage(input, runtimeConfig) {
 
     :root[data-theme="dark"] {
       color-scheme: dark;
-      --page: #11130f;
-      --page-deep: #0b0d0a;
-      --surface: #181b16;
-      --surface-strong: #1e221b;
-      --surface-soft: #20241d;
-      --ink: #f3f5ed;
-      --ink-soft: #c8ccc0;
-      --muted: #92988c;
-      --line: #33382f;
-      --line-strong: #50584a;
-      --accent: #c9f43d;
-      --accent-strong: #dbff62;
-      --accent-ink: #151c00;
-      --blue: #9cb2ff;
-      --blue-soft: #252f51;
-      --success: #7de0b7;
-      --success-soft: #153b30;
-      --warning: #ffd166;
-      --warning-soft: #3b3018;
-      --danger: #ffaaa4;
-      --danger-soft: #482124;
+      --page: #0d1117;
+      --page-deep: #010409;
+      --surface: #161b22;
+      --surface-strong: #21262d;
+      --surface-soft: #1c2128;
+      --ink: #f0f6fc;
+      --ink-soft: #c9d1d9;
+      --muted: #8b949e;
+      --line: #30363d;
+      --line-strong: #484f58;
+      --accent: #238636;
+      --accent-strong: #2ea043;
+      --accent-ink: #ffffff;
+      --blue: #58a6ff;
+      --blue-soft: #172a46;
+      --success: #3fb950;
+      --success-soft: #183622;
+      --warning: #d29922;
+      --warning-soft: #3b2e12;
+      --danger: #ff7b72;
+      --danger-soft: #431c21;
       --shadow-sm: 0 1px 2px rgba(0, 0, 0, .22);
       --shadow: 0 24px 70px rgba(0, 0, 0, .35);
     }
@@ -956,27 +956,27 @@ function generateHomePage(input, runtimeConfig) {
     @media (prefers-color-scheme: dark) {
       :root[data-theme="auto"] {
         color-scheme: dark;
-        --page: #11130f;
-        --page-deep: #0b0d0a;
-        --surface: #181b16;
-        --surface-strong: #1e221b;
-        --surface-soft: #20241d;
-        --ink: #f3f5ed;
-        --ink-soft: #c8ccc0;
-        --muted: #92988c;
-        --line: #33382f;
-        --line-strong: #50584a;
-        --accent: #c9f43d;
-        --accent-strong: #dbff62;
-        --accent-ink: #151c00;
-        --blue: #9cb2ff;
-        --blue-soft: #252f51;
-        --success: #7de0b7;
-        --success-soft: #153b30;
-        --warning: #ffd166;
-        --warning-soft: #3b3018;
-        --danger: #ffaaa4;
-        --danger-soft: #482124;
+        --page: #0d1117;
+        --page-deep: #010409;
+        --surface: #161b22;
+        --surface-strong: #21262d;
+        --surface-soft: #1c2128;
+        --ink: #f0f6fc;
+        --ink-soft: #c9d1d9;
+        --muted: #8b949e;
+        --line: #30363d;
+        --line-strong: #484f58;
+        --accent: #238636;
+        --accent-strong: #2ea043;
+        --accent-ink: #ffffff;
+        --blue: #58a6ff;
+        --blue-soft: #172a46;
+        --success: #3fb950;
+        --success-soft: #183622;
+        --warning: #d29922;
+        --warning-soft: #3b2e12;
+        --danger: #ff7b72;
+        --danger-soft: #431c21;
         --shadow-sm: 0 1px 2px rgba(0, 0, 0, .22);
         --shadow: 0 24px 70px rgba(0, 0, 0, .35);
       }
@@ -989,22 +989,19 @@ function generateHomePage(input, runtimeConfig) {
       margin: 0;
       color: var(--ink);
       background:
-        linear-gradient(rgba(108, 109, 101, .07) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(108, 109, 101, .07) 1px, transparent 1px),
+        radial-gradient(circle at 78% 8%, color-mix(in srgb, var(--blue) 8%, transparent), transparent 28rem),
+        radial-gradient(circle at 18% 20%, color-mix(in srgb, var(--success) 6%, transparent), transparent 24rem),
         var(--page);
-      background-size: 52px 52px;
       line-height: 1.55;
       -webkit-font-smoothing: antialiased;
     }
     body::before {
       position: fixed;
       z-index: -1;
-      top: -260px;
-      right: -200px;
-      width: 650px;
-      height: 650px;
-      border-radius: 50%;
-      background: radial-gradient(circle, rgba(201, 244, 61, .22), transparent 67%);
+      inset: 0;
+      background-image: linear-gradient(color-mix(in srgb, var(--line) 24%, transparent) 1px, transparent 1px);
+      background-size: 100% 72px;
+      mask-image: linear-gradient(to bottom, rgba(0, 0, 0, .3), transparent 620px);
       content: "";
       pointer-events: none;
     }
@@ -1015,7 +1012,7 @@ function generateHomePage(input, runtimeConfig) {
     a:hover { color: var(--ink); }
     :focus-visible { outline: 3px solid var(--blue); outline-offset: 3px; }
     [hidden] { display: none !important; }
-    ::selection { color: var(--accent-ink); background: var(--accent); }
+    ::selection { color: var(--ink); background: var(--blue-soft); }
 
     .skip-link {
       position: fixed;
@@ -1035,16 +1032,16 @@ function generateHomePage(input, runtimeConfig) {
       position: sticky;
       z-index: 30;
       top: 0;
-      border-bottom: 1px solid rgba(128, 128, 120, .22);
-      background: color-mix(in srgb, var(--page) 84%, transparent);
-      backdrop-filter: blur(18px) saturate(1.3);
+      border-bottom: 1px solid color-mix(in srgb, var(--line) 78%, transparent);
+      background: color-mix(in srgb, var(--page) 88%, transparent);
+      backdrop-filter: blur(16px) saturate(1.15);
     }
     .shell {
-      width: min(1180px, calc(100% - 40px));
+      width: min(1240px, calc(100% - 48px));
       margin-inline: auto;
     }
     .header-inner {
-      min-height: 72px;
+      min-height: 64px;
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -1058,28 +1055,28 @@ function generateHomePage(input, runtimeConfig) {
       text-decoration: none;
     }
     .brand-mark {
-      width: 38px;
-      height: 38px;
+      width: 36px;
+      height: 36px;
       display: grid;
       place-items: center;
-      border: 1px solid var(--ink);
-      border-radius: 12px;
-      color: var(--accent-ink);
-      background: var(--accent);
-      box-shadow: 3px 3px 0 var(--ink);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      color: var(--ink);
+      background: var(--surface-strong);
+      box-shadow: var(--shadow-sm);
       font-family: var(--mono);
       font-size: .79rem;
       font-weight: 900;
       letter-spacing: -.08em;
     }
     .brand-copy { display: grid; line-height: 1.05; }
-    .brand-name { font-size: 1rem; font-weight: 850; letter-spacing: -.025em; }
+    .brand-name { font-size: .98rem; font-weight: 750; letter-spacing: -.015em; }
     .brand-tagline {
       margin-top: 4px;
       color: var(--muted);
       font-family: var(--mono);
       font-size: .66rem;
-      letter-spacing: .04em;
+      letter-spacing: .02em;
       text-transform: uppercase;
     }
     .header-actions { display: flex; align-items: center; gap: 10px; }
@@ -1092,11 +1089,11 @@ function generateHomePage(input, runtimeConfig) {
       font-size: .72rem;
     }
     .service-dot {
-      width: 8px;
-      height: 8px;
+      width: 7px;
+      height: 7px;
       border-radius: 50%;
       background: var(--success);
-      box-shadow: 0 0 0 4px color-mix(in srgb, var(--success) 13%, transparent);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--success) 14%, transparent);
     }
     .icon-button {
       width: 40px;
@@ -1104,7 +1101,7 @@ function generateHomePage(input, runtimeConfig) {
       display: grid;
       place-items: center;
       border: 1px solid var(--line);
-      border-radius: 12px;
+      border-radius: 8px;
       background: var(--surface);
       box-shadow: var(--shadow-sm);
       cursor: pointer;
@@ -1112,134 +1109,187 @@ function generateHomePage(input, runtimeConfig) {
     }
     .icon-button:hover { border-color: var(--line-strong); background: var(--surface-strong); }
 
-    main { padding: 76px 0 80px; }
+    main { padding: clamp(46px, 5vw, 68px) 0 80px; }
     .hero-grid {
       display: grid;
-      grid-template-columns: minmax(0, 1.45fr) minmax(300px, .65fr);
-      gap: clamp(36px, 7vw, 92px);
-      align-items: end;
+      grid-template-columns: minmax(0, .82fr) minmax(540px, 1.18fr);
+      gap: clamp(44px, 6vw, 84px);
+      align-items: center;
+    }
+    .hero-intro {
+      max-width: 540px;
     }
     .eyebrow {
       display: inline-flex;
       align-items: center;
-      gap: 9px;
-      margin: 0 0 18px;
-      color: var(--ink-soft);
+      gap: 8px;
+      margin: 0 0 20px;
+      padding: 5px 10px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      color: var(--muted);
+      background: color-mix(in srgb, var(--surface) 76%, transparent);
       font-family: var(--mono);
-      font-size: .74rem;
-      font-weight: 750;
-      letter-spacing: .08em;
+      font-size: .68rem;
+      font-weight: 700;
+      letter-spacing: .05em;
       text-transform: uppercase;
     }
     .eyebrow::before {
-      width: 22px;
-      height: 2px;
-      background: var(--accent-strong);
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--success);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--success) 13%, transparent);
       content: "";
     }
     h1, h2, h3, p { overflow-wrap: anywhere; }
     h1 {
-      max-width: 830px;
+      max-width: 600px;
       margin: 0;
-      font-size: clamp(3rem, 7vw, 6.65rem);
-      font-weight: 880;
-      line-height: .92;
-      letter-spacing: -.075em;
+      font-size: clamp(3rem, 4.8vw, 4.5rem);
+      font-weight: 760;
+      line-height: 1.04;
+      letter-spacing: -.055em;
       text-wrap: balance;
     }
     .highlight {
-      position: relative;
-      z-index: 0;
       display: inline-block;
+      color: var(--blue);
       white-space: nowrap;
     }
-    .highlight::after {
-      position: absolute;
-      z-index: -1;
-      right: -.04em;
-      bottom: .02em;
-      left: -.04em;
-      height: .28em;
-      border-radius: .1em;
-      background: var(--accent);
-      content: "";
-      transform: rotate(-1.2deg);
-    }
     .hero-copy {
-      max-width: 690px;
-      margin: 27px 0 0;
+      max-width: 530px;
+      margin: 22px 0 0;
       color: var(--ink-soft);
-      font-size: clamp(1rem, 2vw, 1.17rem);
+      font-size: clamp(.98rem, 1.5vw, 1.08rem);
     }
-    .workflow-card {
-      position: relative;
-      overflow: hidden;
-      padding: 24px;
-      border: 1px solid var(--line);
-      border-radius: var(--radius-lg);
-      background: color-mix(in srgb, var(--surface) 93%, transparent);
-      box-shadow: var(--shadow);
+    .hero-points {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 9px 16px;
+      margin: 25px 0 0;
+      padding: 0;
+      list-style: none;
     }
-    .workflow-card::after {
-      position: absolute;
-      right: -48px;
-      bottom: -58px;
-      width: 150px;
-      height: 150px;
-      border: 28px solid var(--accent);
-      border-radius: 50%;
-      content: "";
-      opacity: .7;
-    }
-    .workflow-label {
-      margin: 0 0 18px;
+    .hero-point {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
       color: var(--muted);
-      font-family: var(--mono);
-      font-size: .7rem;
-      font-weight: 800;
-      letter-spacing: .09em;
-      text-transform: uppercase;
+      font-size: .81rem;
     }
-    .workflow-list { position: relative; z-index: 1; display: grid; gap: 0; }
-    .workflow-step {
-      display: grid;
-      grid-template-columns: 34px minmax(0, 1fr);
-      gap: 12px;
-      padding: 13px 0;
-      border-top: 1px solid var(--line);
-    }
-    .workflow-step:first-child { border-top: 0; padding-top: 0; }
-    .step-number {
-      width: 30px;
-      height: 30px;
+    .hero-point::before {
+      width: 18px;
+      height: 18px;
       display: grid;
       place-items: center;
-      border: 1px solid var(--line-strong);
       border-radius: 50%;
+      color: var(--success);
+      background: var(--success-soft);
+      content: "✓";
+      font-size: .68rem;
+      font-weight: 900;
+    }
+    .command-panel {
+      position: relative;
+      overflow: hidden;
+      padding: clamp(24px, 3vw, 32px);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-lg);
+      background: color-mix(in srgb, var(--surface) 96%, transparent);
+      box-shadow: var(--shadow);
+    }
+    .command-panel::before {
+      position: absolute;
+      inset: 0 0 auto;
+      height: 3px;
+      background: linear-gradient(90deg, var(--success), var(--blue));
+      content: "";
+    }
+    .command-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 20px;
+      margin-bottom: 22px;
+    }
+    .command-kicker {
+      display: block;
+      margin-bottom: 6px;
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: .66rem;
+      font-weight: 700;
+      letter-spacing: .07em;
+      text-transform: uppercase;
+    }
+    .command-head h2 {
+      margin: 0;
+      font-size: clamp(1.35rem, 2.4vw, 1.75rem);
+      line-height: 1.18;
+      letter-spacing: -.035em;
+    }
+    .command-note {
+      flex: 0 0 auto;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 3px;
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: .67rem;
+    }
+    .command-note::before { color: var(--success); content: "●"; font-size: .58rem; }
+    .route-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 20px;
+    }
+    .route-card {
+      min-width: 0;
+      display: grid;
+      grid-template-columns: 34px minmax(0, 1fr);
+      gap: 10px;
+      align-items: center;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-sm);
+      background: var(--surface-soft);
+    }
+    .route-icon {
+      width: 34px;
+      height: 34px;
+      display: grid;
+      place-items: center;
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      color: var(--blue);
       background: var(--surface-strong);
       font-family: var(--mono);
-      font-size: .72rem;
+      font-size: .68rem;
       font-weight: 800;
     }
-    .workflow-step strong { display: block; font-size: .94rem; }
-    .workflow-step span { display: block; margin-top: 2px; color: var(--muted); font-size: .8rem; }
+    .route-card strong { display: block; font-size: .84rem; }
+    .route-card span { display: block; margin-top: 1px; color: var(--muted); font-size: .72rem; }
 
     .command-area {
-      margin-top: 46px;
-      padding: 10px;
-      border: 1px solid var(--ink);
-      border-radius: 20px;
+      margin: 0;
+      padding: 6px;
+      border: 1px solid var(--line-strong);
+      border-radius: 13px;
       background: var(--surface-strong);
-      box-shadow: 7px 7px 0 var(--ink);
+      box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--surface) 50%, transparent), var(--shadow-sm);
     }
     .url-form {
       display: grid;
       grid-template-columns: auto minmax(0, 1fr) auto auto;
-      gap: 8px;
+      gap: 6px;
       align-items: center;
     }
     .input-prefix {
-      padding-left: 11px;
+      padding-left: 9px;
       color: var(--muted);
       font-family: var(--mono);
       font-size: .86rem;
@@ -1249,10 +1299,10 @@ function generateHomePage(input, runtimeConfig) {
     .url-input {
       width: 100%;
       min-width: 0;
-      height: 54px;
-      padding: 0 8px;
+      height: 48px;
+      padding: 0 7px;
       border: 0;
-      border-radius: 10px;
+      border-radius: 8px;
       color: var(--ink);
       background: transparent;
       outline: none;
@@ -1278,24 +1328,24 @@ function generateHomePage(input, runtimeConfig) {
       font-weight: 800;
     }
     .primary-button {
-      min-height: 54px;
-      padding: 0 22px;
-      border: 1px solid var(--ink);
+      min-height: 48px;
+      padding: 0 18px;
+      border: 1px solid color-mix(in srgb, var(--accent) 72%, #000000);
       color: var(--accent-ink);
       background: var(--accent);
-      box-shadow: 3px 3px 0 var(--ink);
+      box-shadow: 0 1px 0 rgba(31, 35, 40, .12), inset 0 1px 0 rgba(255, 255, 255, .14);
       white-space: nowrap;
-      transition: transform .16s ease, box-shadow .16s ease, background .16s ease;
+      transition: background .16s ease, border-color .16s ease;
     }
-    .primary-button:hover { background: var(--accent-strong); transform: translate(1px, 1px); box-shadow: 2px 2px 0 var(--ink); }
-    .primary-button:active { transform: translate(3px, 3px); box-shadow: none; }
+    .primary-button:hover { border-color: var(--accent-strong); background: var(--accent-strong); }
+    .primary-button:active { filter: brightness(.92); }
     .primary-button:disabled { cursor: wait; opacity: .65; }
     .command-meta {
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 18px;
-      padding: 11px 6px 2px;
+      padding: 10px 2px 0;
     }
     .form-hint {
       min-height: 1.5em;
@@ -1327,16 +1377,16 @@ function generateHomePage(input, runtimeConfig) {
       align-items: center;
       flex-wrap: wrap;
       gap: 8px;
-      margin-top: 18px;
+      margin-top: 14px;
     }
-    .quick-label { margin-right: 2px; color: var(--muted); font-size: .8rem; }
+    .quick-label { margin-right: 2px; color: var(--muted); font-size: .76rem; }
     .example-button {
-      min-height: 33px;
-      padding: 0 11px;
+      min-height: 30px;
+      padding: 0 10px;
       border: 1px solid var(--line);
       border-radius: 999px;
       color: var(--ink-soft);
-      background: color-mix(in srgb, var(--surface) 88%, transparent);
+      background: var(--surface-soft);
       cursor: pointer;
       font-family: var(--mono);
       font-size: .72rem;
@@ -1356,24 +1406,24 @@ function generateHomePage(input, runtimeConfig) {
     .feature-strip {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
-      margin-top: 72px;
-      border-top: 1px solid var(--line-strong);
-      border-bottom: 1px solid var(--line-strong);
+      gap: 12px;
+      margin-top: 64px;
     }
     .feature-item {
-      min-height: 142px;
-      padding: 24px;
-      border-left: 1px solid var(--line-strong);
+      min-height: 128px;
+      padding: 20px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: color-mix(in srgb, var(--surface) 78%, transparent);
     }
-    .feature-item:first-child { border-left: 0; }
     .feature-index {
       display: block;
-      margin-bottom: 18px;
+      margin-bottom: 14px;
       color: var(--muted);
       font-family: var(--mono);
       font-size: .67rem;
     }
-    .feature-item strong { display: block; font-size: 1rem; }
+    .feature-item strong { display: block; font-size: .95rem; }
     .feature-item p { margin: 6px 0 0; color: var(--muted); font-size: .86rem; }
 
     .results { margin-top: 48px; scroll-margin-top: 92px; }
@@ -1517,8 +1567,8 @@ function generateHomePage(input, runtimeConfig) {
       font-weight: 800;
       text-decoration: none;
     }
-    .button-link { border: 1px solid var(--ink); color: var(--accent-ink); background: var(--accent); box-shadow: 2px 2px 0 var(--ink); }
-    .button-link:hover { color: var(--accent-ink); background: var(--accent-strong); transform: translate(1px, 1px); box-shadow: 1px 1px 0 var(--ink); }
+    .button-link { border: 1px solid color-mix(in srgb, var(--accent) 72%, #000000); color: var(--accent-ink); background: var(--accent); box-shadow: var(--shadow-sm); }
+    .button-link:hover { border-color: var(--accent-strong); color: var(--accent-ink); background: var(--accent-strong); }
     .secondary-link { border: 1px solid var(--line); color: var(--ink-soft); background: var(--surface-strong); }
     .secondary-link:hover { border-color: var(--line-strong); color: var(--ink); }
     .secondary-button {
@@ -1680,32 +1730,27 @@ function generateHomePage(input, runtimeConfig) {
     }
     .footer-code { font-family: var(--mono); }
 
-    @media (max-width: 980px) {
+    @media (max-width: 1100px) {
       .hero-grid { grid-template-columns: 1fr; }
-      .workflow-card { max-width: 620px; }
+      .hero-intro { max-width: 720px; }
+      .hero-copy { max-width: 680px; }
       .overview-grid { grid-template-columns: repeat(3, 1fr); }
       .metric:nth-child(4) { border-left: 0; border-top: 1px solid var(--line); }
       .metric:nth-child(5), .metric:nth-child(6) { border-top: 1px solid var(--line); }
     }
 
     @media (max-width: 720px) {
-      .shell { width: min(100% - 24px, 1180px); }
-      main { padding-top: 48px; }
+      .shell { width: min(100% - 24px, 1240px); }
+      main { padding-top: 40px; }
       .service-state { display: none; }
-      .hero { display: flex; flex-direction: column; }
-      .hero-grid { display: contents; }
-      .hero-grid > div { order: 1; }
-      .command-area { order: 2; }
-      .quick-links { order: 3; }
-      .workflow-card { order: 4; width: 100%; margin-top: 32px; }
-      h1 { font-size: clamp(2.8rem, 16vw, 4.8rem); }
-      .command-area { margin-top: 34px; box-shadow: 5px 5px 0 var(--ink); }
+      .hero-grid { gap: 36px; }
+      h1 { font-size: clamp(2.65rem, 12vw, 4rem); }
+      .command-panel { padding: 22px; }
       .url-form { grid-template-columns: auto minmax(0, 1fr) auto; }
       .primary-button { grid-column: 1 / -1; width: 100%; }
       .command-meta { align-items: flex-start; }
-      .feature-strip { grid-template-columns: 1fr; margin-top: 55px; }
-      .feature-item { min-height: 0; border-top: 1px solid var(--line-strong); border-left: 0; }
-      .feature-item:first-child { border-top: 0; }
+      .feature-strip { grid-template-columns: 1fr; margin-top: 48px; }
+      .feature-item { min-height: 0; }
       .proxy-grid { grid-template-columns: 1fr; }
       .repo-top { grid-template-columns: 1fr; }
       .repo-actions { justify-content: flex-start; }
@@ -1720,6 +1765,10 @@ function generateHomePage(input, runtimeConfig) {
 
     @media (max-width: 520px) {
       .brand-tagline { display: none; }
+      .command-head { display: grid; gap: 7px; }
+      .command-note { margin-top: 0; }
+      .route-grid { grid-template-columns: 1fr; }
+      .command-meta { display: grid; gap: 7px; }
       .panel { border-radius: 21px; }
       .panel-header { display: grid; }
       .overview-grid { grid-template-columns: repeat(2, 1fr); }
@@ -1752,7 +1801,7 @@ function generateHomePage(input, runtimeConfig) {
         </span>
       </a>
       <div class="header-actions">
-        <span class="service-state"><span class="service-dot" aria-hidden="true"></span>Worker ready</span>
+        <span class="service-state"><span class="service-dot" aria-hidden="true"></span>服务就绪</span>
         <button id="theme-toggle" class="icon-button" type="button" aria-label="切换为深色主题" title="切换主题">◐</button>
       </div>
     </div>
@@ -1761,40 +1810,50 @@ function generateHomePage(input, runtimeConfig) {
   <main id="main-content" class="shell">
     <section class="hero" aria-labelledby="page-title">
       <div class="hero-grid">
-        <div>
-          <p class="eyebrow">GitHub resource passage</p>
-          <h1 id="page-title">让 GitHub 资源，<br><span class="highlight">更顺手</span>地抵达。</h1>
-          <p class="hero-copy">输入一个公开仓库，快速查看项目概览、Release 与文件树；输入 Raw、Archive、Release 或 Gist 链接，则生成当前站点的代理地址。</p>
+        <div class="hero-intro">
+          <p class="eyebrow">GitHub resource toolkit</p>
+          <h1 id="page-title">浏览 GitHub，<br><span class="highlight">从一个链接开始。</span></h1>
+          <p class="hero-copy">粘贴公开仓库，集中查看项目概览、Release 与文件树；粘贴 Raw、Archive、Release 或 Gist 链接，则立即生成当前站点的代理地址。</p>
+          <ul class="hero-points" aria-label="服务特点">
+            <li class="hero-point">无需 GitHub Token</li>
+            <li class="hero-point">目录按需加载</li>
+            <li class="hero-point">保留源站链接</li>
+          </ul>
         </div>
-        <aside class="workflow-card" aria-label="使用流程">
-          <p class="workflow-label">One link, two routes</p>
-          <div class="workflow-list">
-            <div class="workflow-step"><span class="step-number">01</span><div><strong>粘贴 GitHub 链接</strong><span>所有判断先在浏览器本地完成</span></div></div>
-            <div class="workflow-step"><span class="step-number">02</span><div><strong>自动识别类型</strong><span>仓库进入浏览模式，资源进入代理模式</span></div></div>
-            <div class="workflow-step"><span class="step-number">03</span><div><strong>浏览或直接取用</strong><span>目录按需加载，资源一键复制</span></div></div>
+        <div class="command-panel" aria-label="GitHub 链接处理工具">
+          <div class="command-head">
+            <div>
+              <span class="command-kicker">Paste · Detect · Go</span>
+              <h2>粘贴 GitHub 链接</h2>
+            </div>
+            <span class="command-note">浏览器本地识别</span>
           </div>
-        </aside>
-      </div>
+          <div class="command-area">
+            <form id="url-form" class="url-form" novalidate>
+              <label for="url-input" hidden>GitHub 仓库或资源 URL</label>
+              <span class="input-prefix" aria-hidden="true">URL</span>
+              <input id="url-input" class="url-input" type="url" inputmode="url" autocomplete="url" autocapitalize="off" spellcheck="false" placeholder="https://github.com/owner/repo" aria-describedby="input-hint" required>
+              <button id="clear-input" class="clear-button" type="button" aria-label="清空输入" title="清空输入" hidden>×</button>
+              <button id="submit-button" class="primary-button" type="submit">识别并继续 →</button>
+            </form>
+            <div class="command-meta">
+              <p id="input-hint" class="form-hint" aria-live="polite">支持公开仓库，以及常见 GitHub 下载与源码资源。</p>
+              <span id="input-kind" class="input-kind">等待输入</span>
+            </div>
+          </div>
 
-      <div class="command-area">
-        <form id="url-form" class="url-form" novalidate>
-          <label for="url-input" hidden>GitHub 仓库或资源 URL</label>
-          <span class="input-prefix" aria-hidden="true">URL</span>
-          <input id="url-input" class="url-input" type="url" inputmode="url" autocomplete="url" autocapitalize="off" spellcheck="false" placeholder="https://github.com/owner/repo" aria-describedby="input-hint" required>
-          <button id="clear-input" class="clear-button" type="button" aria-label="清空输入" title="清空输入" hidden>×</button>
-          <button id="submit-button" class="primary-button" type="submit">识别并继续 →</button>
-        </form>
-        <div class="command-meta">
-          <p id="input-hint" class="form-hint" aria-live="polite">支持公开仓库，以及常见 GitHub 下载与源码资源。</p>
-          <span id="input-kind" class="input-kind">等待输入</span>
+          <div class="quick-links" aria-label="示例链接">
+            <span class="quick-label">快速试用</span>
+            <button class="example-button" type="button" data-example="https://github.com/cloudflare/workers-sdk">仓库示例</button>
+            <button class="example-button" type="button" data-example="https://raw.githubusercontent.com/cloudflare/workers-sdk/main/README.md">Raw 示例</button>
+            <span class="quick-label">按 <kbd>/</kbd> 聚焦</span>
+          </div>
+
+          <div class="route-grid" aria-label="支持的处理方式">
+            <div class="route-card"><span class="route-icon" aria-hidden="true">DIR</span><div><strong>公开仓库</strong><span>浏览概览、版本与文件树</span></div></div>
+            <div class="route-card"><span class="route-icon" aria-hidden="true">URL</span><div><strong>资源链接</strong><span>生成同站代理地址</span></div></div>
+          </div>
         </div>
-      </div>
-
-      <div class="quick-links" aria-label="示例链接">
-        <span class="quick-label">快速试用</span>
-        <button class="example-button" type="button" data-example="https://github.com/cloudflare/workers-sdk">仓库示例</button>
-        <button class="example-button" type="button" data-example="https://raw.githubusercontent.com/cloudflare/workers-sdk/main/README.md">Raw 示例</button>
-        <span class="quick-label">按 <kbd>/</kbd> 聚焦</span>
       </div>
     </section>
 
