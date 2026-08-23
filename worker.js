@@ -1530,12 +1530,56 @@ function generateHomePage(input, runtimeConfig) {
     .clone-label { color: var(--muted); font-family: var(--mono); font-size: .66rem; font-weight: 800; text-transform: uppercase; }
     .clone-command { min-width: 0; overflow: hidden; color: var(--ink-soft); font-family: var(--mono); font-size: .76rem; text-overflow: ellipsis; white-space: nowrap; }
 
-    .release-list { display: grid; gap: 12px; }
-    .release-card { padding: 19px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface-soft); }
+    .release-list { display: grid; gap: 10px; }
+    .release-list-note {
+      margin: 0 0 4px;
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-sm);
+      color: var(--muted);
+      background: var(--surface-soft);
+      font-size: .8rem;
+    }
+    .release-card {
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface-soft);
+    }
+    .release-card[open] { background: color-mix(in srgb, var(--surface-soft) 76%, var(--surface-strong)); }
+    .release-summary {
+      padding: 18px 19px;
+      list-style: none;
+      cursor: pointer;
+      transition: background .16s ease;
+    }
+    .release-summary::-webkit-details-marker { display: none; }
+    .release-summary::marker { content: ""; }
+    .release-summary:focus-visible { outline-offset: -4px; }
+    .release-summary:hover { background: color-mix(in srgb, var(--surface-strong) 72%, transparent); }
     .release-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
     .release-title { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
     .release-meta { margin: 6px 0 0; color: var(--muted); font-family: var(--mono); font-size: .72rem; }
-    .asset-list { display: grid; gap: 7px; margin: 15px 0 0; padding: 0; list-style: none; }
+    .release-summary-side { display: flex; align-items: center; gap: 9px; }
+    .release-chevron {
+      width: 30px;
+      height: 30px;
+      display: grid;
+      place-items: center;
+      flex: 0 0 auto;
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      color: var(--muted);
+      background: var(--surface-strong);
+      font-size: 1rem;
+      font-weight: 700;
+    }
+    .release-chevron::before { content: "＋"; }
+    .release-card[open] .release-chevron::before { content: "−"; }
+    .release-body { padding: 0 19px 19px; border-top: 1px solid var(--line); }
+    .release-body-actions { display: flex; justify-content: flex-end; padding-top: 12px; }
+    .release-empty { margin: 14px 0 0; color: var(--muted); font-size: .84rem; }
+    .asset-list { display: grid; gap: 7px; margin: 14px 0 0; padding: 0; list-style: none; }
     .asset-row {
       display: grid;
       grid-template-columns: minmax(0, 1fr) auto auto;
@@ -1663,7 +1707,8 @@ function generateHomePage(input, runtimeConfig) {
       .proxy-grid { grid-template-columns: 1fr; }
       .repo-top { grid-template-columns: 1fr; }
       .repo-actions { justify-content: flex-start; }
-      .release-top { display: grid; }
+      .release-top { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; }
+      .release-summary-side { justify-content: flex-end; }
       .asset-row { grid-template-columns: minmax(0, 1fr) auto; }
       .asset-link { grid-column: 1 / -1; justify-self: start; }
       .file-row { grid-template-columns: 1fr; gap: 3px; }
@@ -1679,6 +1724,7 @@ function generateHomePage(input, runtimeConfig) {
       .command-meta { display: grid; gap: 7px; }
       .panel { border-radius: 21px; }
       .panel-header { display: grid; }
+      .panel-header > .badge { justify-self: start; }
       .overview-grid { grid-template-columns: repeat(2, 1fr); }
       .metric:nth-child(odd) { border-left: 0; }
       .metric:nth-child(n+3) { border-top: 1px solid var(--line); }
@@ -2365,22 +2411,29 @@ function generateHomePage(input, runtimeConfig) {
     function renderReleases(releases) {
       var list = byId("release-list");
       list.replaceChildren();
-      var safeReleases = Array.isArray(releases) ? releases : [];
+      var safeReleases = Array.isArray(releases) ? releases.filter(function (release) {
+        return release && typeof release === "object";
+      }) : [];
       byId("release-count").textContent = formatNumber(safeReleases.length) + " 个版本";
       if (safeReleases.length === 0) {
         list.appendChild(makeElement("div", "empty-state", "该项目暂未发布 GitHub Release。"));
         return;
       }
+      var collapseOlderReleases = safeReleases.length > 4;
+      if (collapseOlderReleases) {
+        list.appendChild(makeElement("p", "release-list-note", "版本较多，已展开最新版本；点击任一版本可单独查看附件。"));
+      }
       var container = makeElement("div", "release-list");
-      safeReleases.forEach(function (release) {
-        if (!release || typeof release !== "object") return;
-        var card = makeElement("article", "release-card");
+      safeReleases.forEach(function (release, releaseIndex) {
+        var assets = Array.isArray(release.assets) ? release.assets : [];
+        var card = makeElement("details", "release-card");
+        if (!collapseOlderReleases || releaseIndex === 0) card.setAttribute("open", "");
+        var summary = makeElement("summary", "release-summary");
         var top = makeElement("div", "release-top");
         var headingWrap = makeElement("div");
         var titleRow = makeElement("div", "release-title");
         var titleText = release.name || release.tag_name || "未命名版本";
         var title = makeElement("h3", "", titleText);
-        var releaseLink = externalAnchor("GitHub ↗", release.html_url, ["github.com"], "secondary-link");
         titleRow.appendChild(title);
         if (release.draft) titleRow.appendChild(makeElement("span", "badge danger", "Draft"));
         if (release.prerelease) titleRow.appendChild(makeElement("span", "badge warning", "Prerelease"));
@@ -2388,10 +2441,22 @@ function generateHomePage(input, runtimeConfig) {
         headingWrap.appendChild(titleRow);
         headingWrap.appendChild(makeElement("p", "release-meta", "TAG " + (release.tag_name || "—") + " · " + formatDate(release.published_at || release.created_at)));
         top.appendChild(headingWrap);
-        if (releaseLink) top.appendChild(releaseLink);
-        card.appendChild(top);
+        var summarySide = makeElement("span", "release-summary-side");
+        summarySide.appendChild(makeElement("span", "badge", assets.length ? formatNumber(assets.length) + " 个附件" : "无附件"));
+        var chevron = makeElement("span", "release-chevron");
+        chevron.setAttribute("aria-hidden", "true");
+        summarySide.appendChild(chevron);
+        top.appendChild(summarySide);
+        summary.appendChild(top);
+        card.appendChild(summary);
 
-        var assets = Array.isArray(release.assets) ? release.assets : [];
+        var body = makeElement("div", "release-body");
+        var releaseLink = externalAnchor("在 GitHub 查看 ↗", release.html_url, ["github.com"], "secondary-link");
+        if (releaseLink) {
+          var bodyActions = makeElement("div", "release-body-actions");
+          bodyActions.appendChild(releaseLink);
+          body.appendChild(bodyActions);
+        }
         if (assets.length) {
           var assetList = makeElement("ul", "asset-list");
           assets.forEach(function (asset) {
@@ -2406,10 +2471,11 @@ function generateHomePage(input, runtimeConfig) {
             else row.appendChild(makeElement("span", "asset-size", "链接不可用"));
             assetList.appendChild(row);
           });
-          if (assetList.childElementCount) card.appendChild(assetList);
+          if (assetList.childElementCount) body.appendChild(assetList);
         } else {
-          card.appendChild(makeElement("p", "section-caption", "该版本没有附件资源。"));
+          body.appendChild(makeElement("p", "release-empty", "该版本没有附件资源。"));
         }
+        card.appendChild(body);
         container.appendChild(card);
       });
       if (!container.childElementCount) list.appendChild(makeElement("div", "empty-state", "Release 数据为空。"));
