@@ -6,11 +6,9 @@
 
 ## 文件说明
 
-- `worker.js`：最终部署文件，已经包含完整前端。
-- `frontend-home.js`：便于独立维护的首页生成函数。
-- `integrate-frontend.mjs`：把前端函数机械整合回 `worker.js`。
-- `worker.test.js`：使用 Node 内置能力运行的路由、安全和接口测试。
-- `DEVELOPMENT.md`：架构、接口契约、安全边界、开发路径和验收条件。
+- `worker.js`：唯一的 JavaScript 文件，可直接部署。代理路由、GitHub API、HTML、CSS 与浏览器端交互均已内嵌。
+- `README.md`：使用和部署说明。
+- `DEVELOPMENT.md`：架构、接口契约与安全边界。
 
 ## 配置
 
@@ -36,16 +34,6 @@ var Config = {
 
 ```powershell
 node --check .\worker.js
-node --check .\frontend-home.js
-node --test .\worker.test.js
-```
-
-修改 `frontend-home.js` 后，重新生成单文件并验证：
-
-```powershell
-node .\integrate-frontend.mjs
-node --check .\worker.js
-node --test .\worker.test.js
 ```
 
 ## 部署
