@@ -895,32 +895,32 @@ function generateHomePage(input, runtimeConfig) {
   <style>
     :root {
       color-scheme: light;
-      --page: #f6f8fa;
-      --page-deep: #eef1f4;
-      --surface: #ffffff;
+      --page: #f3f5f1;
+      --page-deep: #e9ede7;
+      --surface: #fbfcfa;
       --surface-strong: #ffffff;
-      --surface-soft: #f6f8fa;
-      --ink: #1f2328;
-      --ink-soft: #424a53;
-      --muted: #656d76;
-      --line: #d0d7de;
-      --line-strong: #afb8c1;
-      --accent: #1f883d;
-      --accent-strong: #1a7f37;
+      --surface-soft: #eef1ec;
+      --ink: #171c1a;
+      --ink-soft: #3f4945;
+      --muted: #6d7772;
+      --line: #d6ddd7;
+      --line-strong: #adb9b1;
+      --accent: #176b5b;
+      --accent-strong: #0f5b4d;
       --accent-ink: #ffffff;
-      --blue: #0969da;
-      --blue-soft: #ddf4ff;
-      --success: #1a7f37;
-      --success-soft: #dafbe1;
-      --warning: #9a6700;
-      --warning-soft: #fff8c5;
-      --danger: #cf222e;
-      --danger-soft: #ffebe9;
-      --shadow-sm: 0 1px 2px rgba(31, 35, 40, .08);
-      --shadow: 0 16px 42px rgba(31, 35, 40, .10);
-      --radius-lg: 20px;
-      --radius: 14px;
-      --radius-sm: 10px;
+      --blue: #315bd7;
+      --blue-soft: #e8edff;
+      --success: #14764f;
+      --success-soft: #e1f3e9;
+      --warning: #946200;
+      --warning-soft: #fff4cf;
+      --danger: #c9343f;
+      --danger-soft: #fff0f0;
+      --shadow-sm: 0 2px 8px rgba(26, 38, 31, .06);
+      --shadow: 0 24px 64px rgba(26, 38, 31, .10);
+      --radius-lg: 22px;
+      --radius: 15px;
+      --radius-sm: 11px;
       --mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
       --sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       font-family: var(--sans);
@@ -928,57 +928,57 @@ function generateHomePage(input, runtimeConfig) {
 
     :root[data-theme="dark"] {
       color-scheme: dark;
-      --page: #0d1117;
-      --page-deep: #010409;
-      --surface: #161b22;
-      --surface-strong: #21262d;
-      --surface-soft: #1c2128;
-      --ink: #f0f6fc;
-      --ink-soft: #c9d1d9;
-      --muted: #8b949e;
-      --line: #30363d;
-      --line-strong: #484f58;
-      --accent: #238636;
-      --accent-strong: #2ea043;
+      --page: #0d1210;
+      --page-deep: #070a08;
+      --surface: #151b18;
+      --surface-strong: #1c2420;
+      --surface-soft: #111714;
+      --ink: #f0f5f1;
+      --ink-soft: #c6d0ca;
+      --muted: #8e9a93;
+      --line: #2c3731;
+      --line-strong: #46554d;
+      --accent: #2c927d;
+      --accent-strong: #3ba58f;
       --accent-ink: #ffffff;
-      --blue: #58a6ff;
-      --blue-soft: #172a46;
-      --success: #3fb950;
-      --success-soft: #183622;
-      --warning: #d29922;
-      --warning-soft: #3b2e12;
-      --danger: #ff7b72;
-      --danger-soft: #431c21;
-      --shadow-sm: 0 1px 2px rgba(0, 0, 0, .22);
-      --shadow: 0 24px 70px rgba(0, 0, 0, .35);
+      --blue: #8aa3ff;
+      --blue-soft: #1b2749;
+      --success: #55c38c;
+      --success-soft: #163126;
+      --warning: #e6b84b;
+      --warning-soft: #372d16;
+      --danger: #ff8d92;
+      --danger-soft: #3b1d21;
+      --shadow-sm: 0 2px 8px rgba(0, 0, 0, .22);
+      --shadow: 0 28px 78px rgba(0, 0, 0, .38);
     }
 
     @media (prefers-color-scheme: dark) {
       :root[data-theme="auto"] {
         color-scheme: dark;
-        --page: #0d1117;
-        --page-deep: #010409;
-        --surface: #161b22;
-        --surface-strong: #21262d;
-        --surface-soft: #1c2128;
-        --ink: #f0f6fc;
-        --ink-soft: #c9d1d9;
-        --muted: #8b949e;
-        --line: #30363d;
-        --line-strong: #484f58;
-        --accent: #238636;
-        --accent-strong: #2ea043;
+        --page: #0d1210;
+        --page-deep: #070a08;
+        --surface: #151b18;
+        --surface-strong: #1c2420;
+        --surface-soft: #111714;
+        --ink: #f0f5f1;
+        --ink-soft: #c6d0ca;
+        --muted: #8e9a93;
+        --line: #2c3731;
+        --line-strong: #46554d;
+        --accent: #2c927d;
+        --accent-strong: #3ba58f;
         --accent-ink: #ffffff;
-        --blue: #58a6ff;
-        --blue-soft: #172a46;
-        --success: #3fb950;
-        --success-soft: #183622;
-        --warning: #d29922;
-        --warning-soft: #3b2e12;
-        --danger: #ff7b72;
-        --danger-soft: #431c21;
-        --shadow-sm: 0 1px 2px rgba(0, 0, 0, .22);
-        --shadow: 0 24px 70px rgba(0, 0, 0, .35);
+        --blue: #8aa3ff;
+        --blue-soft: #1b2749;
+        --success: #55c38c;
+        --success-soft: #163126;
+        --warning: #e6b84b;
+        --warning-soft: #372d16;
+        --danger: #ff8d92;
+        --danger-soft: #3b1d21;
+        --shadow-sm: 0 2px 8px rgba(0, 0, 0, .22);
+        --shadow: 0 28px 78px rgba(0, 0, 0, .38);
       }
     }
 
@@ -989,8 +989,8 @@ function generateHomePage(input, runtimeConfig) {
       margin: 0;
       color: var(--ink);
       background:
-        radial-gradient(circle at 78% 8%, color-mix(in srgb, var(--blue) 8%, transparent), transparent 28rem),
-        radial-gradient(circle at 18% 20%, color-mix(in srgb, var(--success) 6%, transparent), transparent 24rem),
+        radial-gradient(circle at 12% 2%, color-mix(in srgb, var(--blue) 10%, transparent), transparent 32rem),
+        radial-gradient(circle at 88% 18%, color-mix(in srgb, var(--accent) 9%, transparent), transparent 30rem),
         var(--page);
       line-height: 1.55;
       -webkit-font-smoothing: antialiased;
@@ -999,9 +999,10 @@ function generateHomePage(input, runtimeConfig) {
       position: fixed;
       z-index: -1;
       inset: 0;
-      background-image: linear-gradient(color-mix(in srgb, var(--line) 24%, transparent) 1px, transparent 1px);
-      background-size: 100% 72px;
-      mask-image: linear-gradient(to bottom, rgba(0, 0, 0, .3), transparent 620px);
+      background-image: radial-gradient(color-mix(in srgb, var(--line-strong) 28%, transparent) 1px, transparent 1px);
+      background-size: 24px 24px;
+      mask-image: linear-gradient(to bottom, rgba(0, 0, 0, .48), transparent 700px);
+      opacity: .7;
       content: "";
       pointer-events: none;
     }
@@ -1029,44 +1030,43 @@ function generateHomePage(input, runtimeConfig) {
     .skip-link:focus { transform: translateY(0); }
 
     .shell {
-      width: min(1240px, calc(100% - 48px));
+      width: min(1160px, calc(100% - 48px));
       margin-inline: auto;
     }
     .icon-button {
-      width: 40px;
-      height: 40px;
+      width: 44px;
+      height: 44px;
       display: grid;
       place-items: center;
       border: 1px solid var(--line);
-      border-radius: 8px;
-      background: var(--surface);
+      border-radius: 12px;
+      background: var(--surface-strong);
       box-shadow: var(--shadow-sm);
       cursor: pointer;
       font-size: 1rem;
     }
     .icon-button:hover { border-color: var(--line-strong); background: var(--surface-strong); }
 
-    main { padding: clamp(46px, 5vw, 68px) 0 80px; }
+    main { padding: 0 0 72px; }
+    .hero { padding: clamp(46px, 7vw, 86px) 0 16px; }
     .hero-grid {
       display: grid;
-      grid-template-columns: minmax(0, .82fr) minmax(540px, 1.18fr);
-      gap: clamp(44px, 6vw, 84px);
-      align-items: center;
+      gap: clamp(24px, 4vw, 36px);
     }
     .hero-grid > * { min-width: 0; }
     .hero-intro {
-      max-width: 540px;
+      max-width: 890px;
     }
     .eyebrow {
       display: inline-flex;
       align-items: center;
       gap: 8px;
-      margin: 0 0 20px;
-      padding: 5px 10px;
+      margin: 0 0 18px;
+      padding: 6px 11px;
       border: 1px solid var(--line);
       border-radius: 999px;
       color: var(--muted);
-      background: color-mix(in srgb, var(--surface) 76%, transparent);
+      background: color-mix(in srgb, var(--surface) 82%, transparent);
       font-family: var(--mono);
       font-size: .68rem;
       font-weight: 700;
@@ -1083,30 +1083,29 @@ function generateHomePage(input, runtimeConfig) {
     }
     h1, h2, h3, p { overflow-wrap: anywhere; }
     h1 {
-      max-width: 600px;
+      max-width: 900px;
       margin: 0;
-      font-size: clamp(3rem, 4.8vw, 4.5rem);
-      font-weight: 760;
-      line-height: 1.04;
-      letter-spacing: -.055em;
+      font-size: clamp(2.85rem, 5vw, 4.4rem);
+      font-weight: 780;
+      line-height: 1.02;
+      letter-spacing: -.06em;
       text-wrap: balance;
     }
     .highlight {
       display: inline-block;
-      color: var(--blue);
-      white-space: nowrap;
+      color: var(--accent);
     }
     .hero-copy {
-      max-width: 530px;
-      margin: 22px 0 0;
+      max-width: 760px;
+      margin: 20px 0 0;
       color: var(--ink-soft);
       font-size: clamp(.98rem, 1.5vw, 1.08rem);
     }
     .hero-points {
       display: flex;
       flex-wrap: wrap;
-      gap: 9px 16px;
-      margin: 25px 0 0;
+      gap: 10px 24px;
+      margin: -2px 0 0;
       padding: 0;
       list-style: none;
     }
@@ -1115,7 +1114,7 @@ function generateHomePage(input, runtimeConfig) {
       align-items: center;
       gap: 7px;
       color: var(--muted);
-      font-size: .81rem;
+      font-size: .84rem;
     }
     .hero-point::before {
       width: 18px;
@@ -1131,31 +1130,38 @@ function generateHomePage(input, runtimeConfig) {
     }
     .command-panel {
       position: relative;
+      display: grid;
+      grid-template-columns: 220px minmax(0, 1fr);
+      grid-template-areas: "head area" "head quick";
+      gap: 16px 28px;
       overflow: hidden;
-      padding: clamp(24px, 3vw, 32px);
+      padding: clamp(22px, 3vw, 30px);
       border: 1px solid var(--line);
       border-radius: var(--radius-lg);
-      background: color-mix(in srgb, var(--surface) 96%, transparent);
+      background: color-mix(in srgb, var(--surface) 97%, transparent);
       box-shadow: var(--shadow);
     }
     .command-panel::before {
       position: absolute;
-      inset: 0 0 auto;
-      height: 3px;
-      background: linear-gradient(90deg, var(--success), var(--blue));
+      inset: 0 auto 0 0;
+      width: 4px;
+      background: linear-gradient(180deg, var(--accent), var(--blue));
       content: "";
     }
     .command-head {
+      grid-area: head;
       display: flex;
-      align-items: flex-start;
+      flex-direction: column;
       justify-content: space-between;
-      gap: 20px;
-      margin-bottom: 22px;
+      gap: 24px;
+      margin: 0;
+      padding-right: 24px;
+      border-right: 1px solid var(--line);
     }
     .command-kicker {
       display: block;
       margin-bottom: 6px;
-      color: var(--muted);
+      color: var(--accent);
       font-family: var(--mono);
       font-size: .66rem;
       font-weight: 700;
@@ -1164,21 +1170,22 @@ function generateHomePage(input, runtimeConfig) {
     }
     .command-head h2 {
       margin: 0;
-      font-size: clamp(1.35rem, 2.4vw, 1.75rem);
-      line-height: 1.18;
+      font-size: clamp(1.35rem, 2.2vw, 1.7rem);
+      line-height: 1.12;
       letter-spacing: -.035em;
     }
     .command-tools {
       flex: 0 0 auto;
       display: flex;
       align-items: center;
-      gap: 11px;
+      justify-content: space-between;
+      gap: 12px;
     }
     .command-note {
       display: inline-flex;
       align-items: center;
       gap: 6px;
-      margin-top: 3px;
+      margin: 0;
       color: var(--muted);
       font-family: var(--mono);
       font-size: .67rem;
@@ -1186,15 +1193,14 @@ function generateHomePage(input, runtimeConfig) {
     .command-note::before { color: var(--success); content: "●"; font-size: .58rem; }
 
     .command-area {
+      grid-area: area;
+      min-width: 0;
       margin: 0;
-      padding: 18px;
-      border: 1px solid var(--line);
-      border-radius: 16px;
-      background: var(--surface-soft);
+      padding: 0;
     }
     .url-form {
       display: grid;
-      gap: 10px;
+      gap: 11px;
     }
     .input-label-row {
       display: flex;
@@ -1208,7 +1214,7 @@ function generateHomePage(input, runtimeConfig) {
       align-items: center;
       gap: 8px;
       color: var(--ink-soft);
-      font-size: .82rem;
+      font-size: .84rem;
       font-weight: 800;
     }
     .input-label-note { color: var(--muted); font-family: var(--mono); font-size: .66rem; font-weight: 600; }
@@ -1216,12 +1222,12 @@ function generateHomePage(input, runtimeConfig) {
     .url-field {
       min-width: 0;
       display: grid;
-      grid-template-columns: auto minmax(0, 1fr) auto;
+      grid-template-columns: minmax(0, 1fr) auto;
       align-items: center;
       border: 1px solid var(--line-strong);
-      border-radius: 12px;
+      border-radius: 14px;
       background: var(--surface-strong);
-      box-shadow: var(--shadow-sm);
+      box-shadow: inset 0 1px 0 color-mix(in srgb, var(--surface-strong) 80%, transparent);
       transition: border-color .16s ease, box-shadow .16s ease, background .16s ease;
     }
     .url-field:focus-within {
@@ -1229,25 +1235,11 @@ function generateHomePage(input, runtimeConfig) {
       box-shadow: 0 0 0 3px color-mix(in srgb, var(--blue) 18%, transparent);
     }
     .url-field:has(.url-input[aria-invalid="true"]) { border-color: var(--danger); background: var(--danger-soft); }
-    .input-prefix {
-      width: 38px;
-      height: 38px;
-      display: grid;
-      place-items: center;
-      margin-left: 7px;
-      border-radius: 9px;
-      color: var(--blue);
-      background: var(--blue-soft);
-      font-family: var(--mono);
-      font-size: .68rem;
-      font-weight: 800;
-      user-select: none;
-    }
     .url-input {
       width: 100%;
       min-width: 0;
-      height: 54px;
-      padding: 0 10px;
+      height: 58px;
+      padding: 0 16px;
       border: 0;
       color: var(--ink);
       background: transparent;
@@ -1290,7 +1282,7 @@ function generateHomePage(input, runtimeConfig) {
     .primary-button:hover { border-color: var(--accent-strong); background: var(--accent-strong); }
     .primary-button:active { filter: brightness(.92); }
     .primary-button:disabled { cursor: wait; opacity: .65; }
-    .input-submit { min-height: 56px; min-inline-size: 146px; padding-inline: 22px; border-radius: 12px; }
+    .input-submit { min-height: 60px; min-inline-size: 154px; padding-inline: 22px; border-radius: 14px; }
     .form-hint {
       min-height: 1.5em;
       margin: 0;
@@ -1318,11 +1310,12 @@ function generateHomePage(input, runtimeConfig) {
     }
     .input-kind.valid { color: var(--success); border-color: color-mix(in srgb, var(--success) 35%, var(--line)); background: var(--success-soft); }
     .quick-links {
+      grid-area: quick;
       display: flex;
       align-items: center;
       flex-wrap: wrap;
       gap: 8px;
-      margin-top: 14px;
+      margin-top: 0;
     }
     .quick-label { margin-right: 2px; color: var(--muted); font-size: .76rem; }
     .example-button {
@@ -1351,16 +1344,18 @@ function generateHomePage(input, runtimeConfig) {
     .feature-strip {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 12px;
-      margin-top: 64px;
+      gap: 0;
+      margin-top: 28px;
+      border-top: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
     }
     .feature-item {
-      min-height: 128px;
-      padding: 20px;
-      border: 1px solid var(--line);
-      border-radius: var(--radius);
-      background: color-mix(in srgb, var(--surface) 78%, transparent);
+      min-height: 100px;
+      padding: 22px 24px;
+      border-right: 1px solid var(--line);
     }
+    .feature-item:first-child { padding-left: 0; }
+    .feature-item:last-child { padding-right: 0; border-right: 0; }
     .feature-index {
       display: block;
       margin-bottom: 14px;
@@ -1371,27 +1366,29 @@ function generateHomePage(input, runtimeConfig) {
     .feature-item strong { display: block; font-size: .95rem; }
     .feature-item p { margin: 6px 0 0; color: var(--muted); font-size: .86rem; }
 
-    .results { margin-top: 48px; scroll-margin-top: 92px; }
+    .results { max-width: 1080px; margin: 36px auto 0; scroll-margin-top: 28px; }
     .panel {
-      margin-top: 18px;
-      padding: clamp(20px, 3.2vw, 34px);
+      margin-top: 16px;
+      padding: clamp(20px, 3vw, 32px);
       border: 1px solid var(--line);
       border-radius: var(--radius-lg);
-      background: color-mix(in srgb, var(--surface) 96%, transparent);
-      box-shadow: var(--shadow);
-      scroll-margin-top: 92px;
+      background: color-mix(in srgb, var(--surface) 98%, transparent);
+      box-shadow: none;
+      scroll-margin-top: 28px;
     }
+    #overview-panel { border-top: 3px solid var(--accent); box-shadow: var(--shadow-sm); }
+    #resource-result { border-top: 3px solid var(--blue); box-shadow: var(--shadow-sm); }
     .panel-header {
       display: flex;
       align-items: flex-start;
       justify-content: space-between;
       gap: 22px;
-      margin-bottom: 24px;
+      margin-bottom: 22px;
     }
     .section-kicker {
       display: block;
       margin-bottom: 7px;
-      color: var(--muted);
+      color: var(--accent);
       font-family: var(--mono);
       font-size: .68rem;
       font-weight: 800;
@@ -1400,7 +1397,7 @@ function generateHomePage(input, runtimeConfig) {
     }
     .panel h2 {
       margin: 0;
-      font-size: clamp(1.4rem, 3.4vw, 2.1rem);
+      font-size: clamp(1.4rem, 3vw, 1.9rem);
       line-height: 1.1;
       letter-spacing: -.045em;
     }
@@ -1414,7 +1411,7 @@ function generateHomePage(input, runtimeConfig) {
       border: 1px solid var(--line);
       border-radius: 999px;
       color: var(--muted);
-      background: var(--surface-soft);
+      background: color-mix(in srgb, var(--surface-soft) 82%, var(--surface));
       font-family: var(--mono);
       font-size: .67rem;
       font-weight: 800;
@@ -1425,12 +1422,12 @@ function generateHomePage(input, runtimeConfig) {
     .badge.warning { color: var(--warning); border-color: color-mix(in srgb, var(--warning) 38%, var(--line)); background: var(--warning-soft); }
     .badge.danger { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 35%, var(--line)); background: var(--danger-soft); }
 
-    .status-panel { text-align: center; }
+    .status-panel { text-align: left; }
     .status-orbit {
       position: relative;
       width: 52px;
       height: 52px;
-      margin: 0 auto 18px;
+      margin: 0 0 18px;
       border: 1px solid var(--line-strong);
       border-radius: 50%;
     }
@@ -1449,8 +1446,8 @@ function generateHomePage(input, runtimeConfig) {
     }
     @keyframes orbit { to { transform: rotate(360deg); } }
     .status-title { margin: 0; font-size: 1.13rem; font-weight: 850; }
-    .status-copy { max-width: 650px; margin: 7px auto 0; color: var(--muted); }
-    .status-actions { display: flex; justify-content: center; gap: 10px; margin-top: 18px; }
+    .status-copy { max-width: 650px; margin: 7px 0 0; color: var(--muted); }
+    .status-actions { display: flex; justify-content: flex-start; gap: 10px; margin-top: 18px; }
     .skeleton-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 25px; }
     .skeleton {
       height: 68px;
@@ -1460,18 +1457,20 @@ function generateHomePage(input, runtimeConfig) {
       animation: shimmer 1.35s ease infinite;
     }
     @keyframes shimmer { to { background-position-x: -230%; } }
-    .warning-panel { border-color: color-mix(in srgb, var(--warning) 42%, var(--line)); background: var(--warning-soft); box-shadow: none; }
+    .warning-panel { padding-block: 20px; border-color: color-mix(in srgb, var(--warning) 42%, var(--line)); border-radius: var(--radius); background: var(--warning-soft); box-shadow: none; }
     .warning-list { margin: 10px 0 0; padding-left: 21px; }
     .warning-list li + li { margin-top: 6px; }
 
-    .proxy-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; }
+    .proxy-grid { display: grid; grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr); gap: 12px; }
     .url-card {
       min-width: 0;
-      padding: 17px;
+      padding: 16px;
       border: 1px solid var(--line);
       border-radius: var(--radius);
       background: var(--surface-soft);
     }
+    .url-card:nth-child(2) { border-color: color-mix(in srgb, var(--blue) 42%, var(--line)); background: color-mix(in srgb, var(--blue-soft) 46%, var(--surface-strong)); }
+    .url-card:nth-child(2) .output-input { font-weight: 750; }
     .field-label {
       display: flex;
       align-items: center;
@@ -1498,7 +1497,7 @@ function generateHomePage(input, runtimeConfig) {
       font-size: .8rem;
       text-overflow: ellipsis;
     }
-    .proxy-actions { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-top: 18px; }
+    .proxy-actions { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-top: 16px; }
     .link-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 9px; }
     .button-link, .secondary-link {
       min-height: 42px;
@@ -1528,53 +1527,55 @@ function generateHomePage(input, runtimeConfig) {
     .repo-top {
       display: grid;
       grid-template-columns: minmax(0, 1fr) auto;
-      gap: 26px;
+      gap: 28px;
       align-items: start;
     }
     .repo-name-row { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
-    .repo-description { max-width: 760px; margin: 13px 0 0; color: var(--ink-soft); font-size: 1rem; }
+    .repo-description { max-width: 760px; margin: 12px 0 0; color: var(--ink-soft); font-size: 1rem; }
     .repo-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 9px; }
     .overview-grid {
       display: grid;
-      grid-template-columns: repeat(6, minmax(0, 1fr));
-      margin-top: 27px;
-      border: 1px solid var(--line);
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 1px;
+      margin-top: 26px;
+      padding: 1px;
       border-radius: var(--radius);
-      background: var(--surface-soft);
+      background: var(--line);
       overflow: hidden;
     }
     .metric {
       min-width: 0;
-      padding: 17px;
-      border-left: 1px solid var(--line);
+      min-height: 86px;
+      padding: 17px 18px;
+      background: var(--surface-soft);
     }
-    .metric:first-child { border-left: 0; }
     .metric-label { display: block; margin-bottom: 7px; color: var(--muted); font-family: var(--mono); font-size: .63rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
-    .metric-value { display: block; overflow-wrap: anywhere; font-size: .93rem; font-weight: 820; }
+    .metric-value { display: block; overflow-wrap: anywhere; font-size: 1rem; font-weight: 820; }
     .clone-box {
       display: grid;
       grid-template-columns: auto minmax(0, 1fr) auto;
       gap: 12px;
       align-items: center;
-      margin-top: 14px;
-      padding: 12px 13px;
+      margin-top: 12px;
+      padding: 12px 14px;
       border: 1px solid var(--line);
       border-radius: var(--radius-sm);
-      background: var(--surface-soft);
+      background: color-mix(in srgb, var(--surface-soft) 72%, var(--surface-strong));
     }
     .clone-label { color: var(--muted); font-family: var(--mono); font-size: .66rem; font-weight: 800; text-transform: uppercase; }
     .clone-command { min-width: 0; overflow: hidden; color: var(--ink-soft); font-family: var(--mono); font-size: .76rem; text-overflow: ellipsis; white-space: nowrap; }
 
-    .release-list { display: grid; gap: 10px; }
+    .release-list { display: grid; gap: 8px; }
     .release-card {
       overflow: hidden;
       border: 1px solid var(--line);
-      border-radius: var(--radius);
-      background: var(--surface-soft);
+      border-radius: 13px;
+      background: color-mix(in srgb, var(--surface-soft) 68%, var(--surface-strong));
     }
-    .release-card[open] { background: color-mix(in srgb, var(--surface-soft) 76%, var(--surface-strong)); }
+    .release-card[open] { border-color: color-mix(in srgb, var(--accent) 28%, var(--line)); background: var(--surface-soft); }
     .release-summary {
-      padding: 18px 19px;
+      min-height: 70px;
+      padding: 16px 18px;
       list-style: none;
       cursor: pointer;
       transition: background .16s ease;
@@ -1582,7 +1583,7 @@ function generateHomePage(input, runtimeConfig) {
     .release-summary::-webkit-details-marker { display: none; }
     .release-summary::marker { content: ""; }
     .release-summary:focus-visible { outline-offset: -4px; }
-    .release-summary:hover { background: color-mix(in srgb, var(--surface-strong) 72%, transparent); }
+    .release-summary:hover { background: color-mix(in srgb, var(--surface-strong) 58%, transparent); }
     .release-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
     .release-title { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
     .release-meta { margin: 6px 0 0; color: var(--muted); font-family: var(--mono); font-size: .72rem; }
@@ -1594,7 +1595,7 @@ function generateHomePage(input, runtimeConfig) {
       place-items: center;
       flex: 0 0 auto;
       border: 1px solid var(--line);
-      border-radius: 9px;
+      border-radius: 50%;
       color: var(--muted);
       background: var(--surface-strong);
       font-size: 1rem;
@@ -1602,7 +1603,7 @@ function generateHomePage(input, runtimeConfig) {
     }
     .release-chevron::before { content: "＋"; }
     .release-card[open] .release-chevron::before { content: "−"; }
-    .release-body { padding: 0 19px 19px; border-top: 1px solid var(--line); }
+    .release-body { padding: 0 18px 18px; border-top: 1px solid var(--line); }
     .release-body-actions { display: flex; justify-content: flex-end; padding-top: 12px; }
     .release-empty { margin: 14px 0 0; color: var(--muted); font-size: .84rem; }
     .asset-list { display: grid; gap: 7px; margin: 14px 0 0; padding: 0; list-style: none; }
@@ -1611,10 +1612,11 @@ function generateHomePage(input, runtimeConfig) {
       grid-template-columns: minmax(0, 1fr) auto auto;
       align-items: center;
       gap: 13px;
+      min-height: 48px;
       padding: 10px 12px;
       border: 1px solid transparent;
-      border-radius: 10px;
-      background: var(--surface-strong);
+      border-radius: 9px;
+      background: color-mix(in srgb, var(--surface-strong) 82%, var(--surface));
     }
     .asset-row:hover { border-color: var(--line); }
     .asset-name { min-width: 0; overflow-wrap: anywhere; font-family: var(--mono); font-size: .78rem; font-weight: 700; }
@@ -1623,38 +1625,38 @@ function generateHomePage(input, runtimeConfig) {
 
     .file-tools { display: flex; align-items: center; gap: 9px; }
     .file-filter {
-      width: min(230px, 34vw);
-      height: 38px;
-      padding: 0 11px;
+      width: min(250px, 36vw);
+      height: 42px;
+      padding: 0 13px;
       border: 1px solid var(--line);
       border-radius: 10px;
       color: var(--ink);
       background: var(--surface-strong);
       font-size: .8rem;
     }
-    .file-browser { overflow: hidden; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface-soft); }
+    .file-browser { overflow: hidden; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface-strong); }
     .file-list { margin: 0; padding: 0; list-style: none; }
     .file-list .file-list { margin-left: 27px; border-left: 1px solid var(--line); }
     .file-row {
-      min-height: 51px;
+      min-height: 49px;
       display: grid;
       grid-template-columns: minmax(0, 1fr) auto;
       align-items: center;
       gap: 12px;
       padding: 7px 13px;
       border-top: 1px solid var(--line);
-      background: color-mix(in srgb, var(--surface-strong) 64%, transparent);
+      background: color-mix(in srgb, var(--surface-strong) 88%, transparent);
     }
     .file-list > .file-node:first-child > .file-row { border-top: 0; }
     .file-list .file-list > .file-node > .file-row { border-top: 1px solid var(--line); }
-    .file-row:hover { background: var(--surface-strong); }
+    .file-row:hover { background: var(--surface-soft); }
     .file-main { min-width: 0; display: flex; align-items: center; gap: 9px; }
     .file-kind {
       flex: 0 0 auto;
       min-width: 34px;
       padding: 2px 4px;
       border: 1px solid var(--line);
-      border-radius: 6px;
+      border-radius: 7px;
       color: var(--muted);
       background: var(--surface-soft);
       font-family: var(--mono);
@@ -1663,7 +1665,7 @@ function generateHomePage(input, runtimeConfig) {
       text-align: center;
       text-transform: uppercase;
     }
-    .file-kind.directory { color: var(--warning); background: var(--warning-soft); }
+    .file-kind.directory { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 28%, var(--line)); background: color-mix(in srgb, var(--success-soft) 72%, var(--surface)); }
     .directory-toggle {
       min-width: 0;
       display: inline-flex;
@@ -1691,15 +1693,15 @@ function generateHomePage(input, runtimeConfig) {
       grid-template-columns: minmax(0, 1fr) auto;
       gap: 22px;
       align-items: center;
-      padding: 22px;
+      padding: 20px;
       border: 1px solid var(--line);
       border-radius: var(--radius);
-      background: var(--surface-soft);
+      background: color-mix(in srgb, var(--surface-soft) 66%, var(--surface-strong));
     }
     .readme-card p { max-width: 720px; margin: 7px 0 0; color: var(--muted); font-size: .86rem; }
     .empty-state { padding: 30px; color: var(--muted); text-align: center; border: 1px dashed var(--line-strong); border-radius: var(--radius); background: var(--surface-soft); }
 
-    footer { padding: 28px 0 42px; color: var(--muted); font-size: .76rem; }
+    footer { padding: 12px 0 38px; color: var(--muted); font-size: .76rem; }
     .footer-inner {
       display: flex;
       align-items: center;
@@ -1710,25 +1712,34 @@ function generateHomePage(input, runtimeConfig) {
     }
     .footer-code { font-family: var(--mono); }
 
-    @media (max-width: 1100px) {
-      .hero-grid { grid-template-columns: 1fr; }
-      .hero-intro { max-width: 720px; }
-      .hero-copy { max-width: 680px; }
-      .overview-grid { grid-template-columns: repeat(3, 1fr); }
-      .metric:nth-child(4) { border-left: 0; border-top: 1px solid var(--line); }
-      .metric:nth-child(5), .metric:nth-child(6) { border-top: 1px solid var(--line); }
+    @media (max-width: 900px) {
+      .command-panel {
+        grid-template-columns: 1fr;
+        grid-template-areas: "head" "area" "quick";
+        gap: 18px;
+      }
+      .command-head {
+        flex-direction: row;
+        align-items: center;
+        gap: 18px;
+        padding: 0 0 18px;
+        border-right: 0;
+        border-bottom: 1px solid var(--line);
+      }
+      .command-tools { justify-content: flex-end; }
     }
 
     @media (max-width: 720px) {
       .shell { width: calc(100% - 24px); }
-      main { padding-top: 40px; }
-      .hero-grid { gap: 36px; }
-      h1 { font-size: clamp(2.65rem, 12vw, 4rem); }
-      .command-panel { padding: 22px; }
+      .hero { padding-top: 42px; }
+      .hero-grid { gap: 26px; }
+      h1 { font-size: clamp(2.55rem, 11vw, 4rem); }
       .input-action-row { grid-template-columns: 1fr; }
       .input-submit { width: 100%; }
-      .feature-strip { grid-template-columns: 1fr; margin-top: 48px; }
-      .feature-item { min-height: 0; }
+      .feature-strip { grid-template-columns: 1fr; margin-top: 20px; }
+      .feature-item { min-height: 0; padding: 18px 0; border-right: 0; border-bottom: 1px solid var(--line); }
+      .feature-item:last-child { border-bottom: 0; }
+      .results { margin-top: 28px; }
       .proxy-grid { grid-template-columns: 1fr; }
       .repo-top { grid-template-columns: 1fr; }
       .repo-actions { justify-content: flex-start; }
@@ -1743,19 +1754,21 @@ function generateHomePage(input, runtimeConfig) {
     }
 
     @media (max-width: 520px) {
-      .command-head { gap: 12px; }
+      .hero { padding-top: 34px; }
+      .eyebrow { margin-bottom: 14px; }
+      h1 { font-size: clamp(2.35rem, 12vw, 3.25rem); line-height: 1.04; }
+      .hero-copy { margin-top: 16px; }
+      .hero-points { gap: 8px 16px; }
+      .command-head { align-items: flex-start; gap: 12px; }
       .command-tools { margin-left: auto; }
       .command-note { display: none; }
       .command-panel { padding: 18px; }
-      .command-area { padding: 14px; }
       .input-label-note { display: none; }
-      .panel { border-radius: 21px; }
+      .panel { padding: 18px; border-radius: 17px; }
       .panel-header { display: grid; }
       .panel-header > .badge { justify-self: start; }
       .overview-grid { grid-template-columns: repeat(2, 1fr); }
-      .metric:nth-child(odd) { border-left: 0; }
-      .metric:nth-child(n+3) { border-top: 1px solid var(--line); }
-      .metric:nth-child(4) { border-left: 1px solid var(--line); }
+      .metric { min-height: 78px; padding: 14px; }
       .skeleton-grid { grid-template-columns: 1fr 1fr; }
       .clone-box { grid-template-columns: 1fr auto; }
       .clone-label { grid-column: 1 / -1; }
@@ -1765,8 +1778,10 @@ function generateHomePage(input, runtimeConfig) {
     }
 
     @media (max-width: 360px) {
-      .highlight { white-space: normal; }
       .input-label-row { align-items: flex-start; flex-direction: column; }
+      .command-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; }
+      .command-tools { margin: 0; }
+      .overview-grid { grid-template-columns: 1fr; }
     }
 
     @media (prefers-reduced-motion: reduce) {
@@ -1781,36 +1796,30 @@ function generateHomePage(input, runtimeConfig) {
     <section class="hero" aria-labelledby="page-title">
       <div class="hero-grid">
         <div class="hero-intro">
-          <p class="eyebrow">GitHub resource toolkit</p>
-          <h1 id="page-title">浏览 GitHub，<br><span class="highlight">从一个链接开始。</span></h1>
-          <p class="hero-copy">粘贴公开仓库，集中查看项目概览、Release 与文件树；粘贴 Raw、Archive、Release 或 Gist 链接，则立即生成当前站点的代理地址。</p>
-          <ul class="hero-points" aria-label="服务特点">
-            <li class="hero-point">无需 GitHub Token</li>
-            <li class="hero-point">目录按需加载</li>
-            <li class="hero-point">保留源站链接</li>
-          </ul>
+          <p class="eyebrow">GitHub resource workspace</p>
+          <h1 id="page-title">浏览 GitHub，<br><span class="highlight">一个链接就够。</span></h1>
+          <p class="hero-copy">公开仓库集中查看概览、Release 与文件树；Raw、Archive、Release 或 Gist 链接则直接转换为当前站点的代理地址。</p>
         </div>
         <div class="command-panel" aria-label="GitHub 链接处理工具">
           <div class="command-head">
             <div>
-              <span class="command-kicker">Paste · Detect · Go</span>
-              <h2>粘贴 GitHub 链接</h2>
+              <span class="command-kicker">Link console</span>
+              <h2>从这里开始</h2>
             </div>
             <div class="command-tools">
-              <span class="command-note">浏览器本地识别</span>
+              <span class="command-note">本地识别，不保留输入历史</span>
               <button id="theme-toggle" class="icon-button" type="button" aria-label="切换为深色主题" title="切换主题">◐</button>
             </div>
           </div>
           <div class="command-area">
             <form id="url-form" class="url-form" autocomplete="off" novalidate>
               <div class="input-label-row">
-                <label class="input-label" for="url-input"><span>GitHub URL</span><span class="input-label-note" aria-hidden="true">公开仓库或资源链接</span></label>
+                <label class="input-label" for="url-input"><span>GitHub 链接</span><span class="input-label-note" aria-hidden="true">公开仓库 / Raw / Release / Archive / Gist</span></label>
                 <span id="input-kind" class="input-kind">等待输入</span>
               </div>
               <div class="input-action-row">
                 <div class="url-field">
-                  <span class="input-prefix" aria-hidden="true">GH</span>
-                  <input id="url-input" class="url-input" name="github-resource-url" type="url" inputmode="url" autocomplete="off" aria-autocomplete="none" autocapitalize="off" spellcheck="false" placeholder="https://github.com/owner/repo" aria-describedby="input-hint" required>
+                  <input id="url-input" class="url-input" name="github-resource-url" type="url" inputmode="url" autocomplete="off" aria-autocomplete="none" autocapitalize="off" spellcheck="false" placeholder="https://github.com/owner/repository" aria-describedby="input-hint" required>
                   <button id="clear-input" class="clear-button" type="button" aria-label="清空输入" title="清空输入" hidden>×</button>
                 </div>
                 <button id="submit-button" class="primary-button input-submit" type="submit">识别并继续 →</button>
@@ -1820,20 +1829,25 @@ function generateHomePage(input, runtimeConfig) {
           </div>
 
           <div class="quick-links" aria-label="示例链接">
-            <span class="quick-label">试试看</span>
+            <span class="quick-label">示例</span>
             <button class="example-button" type="button" data-example="https://github.com/cloudflare/workers-sdk">公开仓库</button>
             <button class="example-button" type="button" data-example="https://raw.githubusercontent.com/cloudflare/workers-sdk/main/README.md">Raw 文件</button>
             <span class="quick-label">按 <kbd>/</kbd> 聚焦</span>
           </div>
 
         </div>
+        <ul class="hero-points" aria-label="服务特点">
+          <li class="hero-point">无需 GitHub Token</li>
+          <li class="hero-point">目录按需加载</li>
+          <li class="hero-point">保留源站链接</li>
+        </ul>
       </div>
     </section>
 
     <section id="welcome" class="feature-strip" aria-label="功能说明">
-      <article class="feature-item"><span class="feature-index">01 / EXPLORE</span><strong>仓库信息一屏掌握</strong><p>概览、版本、文件与 README 入口按清晰层级呈现。</p></article>
-      <article class="feature-item"><span class="feature-index">02 / PROXY</span><strong>资源链接即贴即用</strong><p>保留原始地址，并生成匹配当前部署前缀的代理 URL。</p></article>
-      <article class="feature-item"><span class="feature-index">03 / SAFE</span><strong>默认安全、按需加载</strong><p>只接收受支持的 HTTPS 主机，目录展开后才发起请求。</p></article>
+      <article class="feature-item"><span class="feature-index">01 / BROWSE</span><strong>仓库浏览</strong><p>概览、版本、文件与 README 入口集中呈现。</p></article>
+      <article class="feature-item"><span class="feature-index">02 / ROUTE</span><strong>资源代理</strong><p>保留源地址，自动生成当前部署前缀的代理 URL。</p></article>
+      <article class="feature-item"><span class="feature-index">03 / GUARD</span><strong>安全加载</strong><p>只接收支持的 HTTPS 主机，目录展开后再请求。</p></article>
     </section>
 
     <div id="results" class="results">
@@ -2283,6 +2297,8 @@ function generateHomePage(input, runtimeConfig) {
       setVisible(resourceResult, true);
       document.title = "代理链接 — Passage";
       lastAction = function () { renderResource(resourceUrl, kind); };
+      updateInputPreview();
+      setInputHint((kind || "GitHub 资源") + " · 代理地址已生成。", "success");
       if (!options || options.scroll !== false) byId("results").scrollIntoView({ block: "start", behavior: "smooth" });
     }
 
@@ -2316,7 +2332,8 @@ function generateHomePage(input, runtimeConfig) {
       } finally {
         if (sequence === requestSequence) {
           submitButton.disabled = false;
-          submitButton.textContent = "识别并继续 →";
+          updateInputPreview();
+          if (!byId("overview-panel").hidden) setInputHint("仓库已加载，可以更换链接继续浏览。", "success");
           activeController = null;
         }
       }
