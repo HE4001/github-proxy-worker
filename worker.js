@@ -1053,6 +1053,7 @@ function generateHomePage(input, runtimeConfig) {
       gap: clamp(44px, 6vw, 84px);
       align-items: center;
     }
+    .hero-grid > * { min-width: 0; }
     .hero-intro {
       max-width: 540px;
     }
@@ -1198,6 +1199,11 @@ function generateHomePage(input, runtimeConfig) {
       gap: 6px;
       align-items: center;
     }
+    .form-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
     .input-prefix {
       padding-left: 9px;
       color: var(--muted);
@@ -1251,10 +1257,6 @@ function generateHomePage(input, runtimeConfig) {
     .primary-button:active { filter: brightness(.92); }
     .primary-button:disabled { cursor: wait; opacity: .65; }
     .command-meta {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 18px;
       padding: 10px 2px 0;
     }
     .form-hint {
@@ -1531,15 +1533,6 @@ function generateHomePage(input, runtimeConfig) {
     .clone-command { min-width: 0; overflow: hidden; color: var(--ink-soft); font-family: var(--mono); font-size: .76rem; text-overflow: ellipsis; white-space: nowrap; }
 
     .release-list { display: grid; gap: 10px; }
-    .release-list-note {
-      margin: 0 0 4px;
-      padding: 10px 12px;
-      border: 1px solid var(--line);
-      border-radius: var(--radius-sm);
-      color: var(--muted);
-      background: var(--surface-soft);
-      font-size: .8rem;
-    }
     .release-card {
       overflow: hidden;
       border: 1px solid var(--line);
@@ -1694,14 +1687,14 @@ function generateHomePage(input, runtimeConfig) {
     }
 
     @media (max-width: 720px) {
-      .shell { width: min(100% - 24px, 1240px); }
+      .shell { width: calc(100% - 24px); }
       main { padding-top: 40px; }
       .hero-grid { gap: 36px; }
       h1 { font-size: clamp(2.65rem, 12vw, 4rem); }
       .command-panel { padding: 22px; }
       .url-form { grid-template-columns: auto minmax(0, 1fr) auto; }
-      .primary-button { grid-column: 1 / -1; width: 100%; }
-      .command-meta { align-items: flex-start; }
+      .form-actions { grid-column: 1 / -1; }
+      .form-actions .primary-button { flex: 1 1 auto; }
       .feature-strip { grid-template-columns: 1fr; margin-top: 48px; }
       .feature-item { min-height: 0; }
       .proxy-grid { grid-template-columns: 1fr; }
@@ -1721,7 +1714,6 @@ function generateHomePage(input, runtimeConfig) {
       .command-head { gap: 12px; }
       .command-tools { margin-left: auto; }
       .command-note { display: none; }
-      .command-meta { display: grid; gap: 7px; }
       .panel { border-radius: 21px; }
       .panel-header { display: grid; }
       .panel-header > .badge { justify-self: start; }
@@ -1735,6 +1727,13 @@ function generateHomePage(input, runtimeConfig) {
       .file-tools { align-items: flex-start; flex-direction: column; }
       .file-filter { width: 100%; }
       .file-list .file-list { margin-left: 13px; }
+    }
+
+    @media (max-width: 360px) {
+      .highlight { white-space: normal; }
+      .form-actions { flex-wrap: wrap; }
+      .form-actions .input-kind { margin-left: auto; }
+      .form-actions .primary-button { flex-basis: 100%; }
     }
 
     @media (prefers-reduced-motion: reduce) {
@@ -1775,11 +1774,13 @@ function generateHomePage(input, runtimeConfig) {
               <span class="input-prefix" aria-hidden="true">URL</span>
               <input id="url-input" class="url-input" name="github-resource-url" type="url" inputmode="url" autocomplete="off" aria-autocomplete="none" autocapitalize="off" spellcheck="false" placeholder="https://github.com/owner/repo" aria-describedby="input-hint" required>
               <button id="clear-input" class="clear-button" type="button" aria-label="清空输入" title="清空输入" hidden>×</button>
-              <button id="submit-button" class="primary-button" type="submit">识别并继续 →</button>
+              <div class="form-actions">
+                <span id="input-kind" class="input-kind">等待输入</span>
+                <button id="submit-button" class="primary-button" type="submit">识别并继续 →</button>
+              </div>
             </form>
             <div class="command-meta">
               <p id="input-hint" class="form-hint" aria-live="polite">支持公开仓库，以及常见 GitHub 下载与源码资源。</p>
-              <span id="input-kind" class="input-kind">等待输入</span>
             </div>
           </div>
 
@@ -2420,9 +2421,6 @@ function generateHomePage(input, runtimeConfig) {
         return;
       }
       var collapseOlderReleases = safeReleases.length > 4;
-      if (collapseOlderReleases) {
-        list.appendChild(makeElement("p", "release-list-note", "版本较多，已展开最新版本；点击任一版本可单独查看附件。"));
-      }
       var container = makeElement("div", "release-list");
       safeReleases.forEach(function (release, releaseIndex) {
         var assets = Array.isArray(release.assets) ? release.assets : [];
