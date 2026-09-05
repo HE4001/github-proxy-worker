@@ -708,7 +708,10 @@ async function githubUpstream(apiPath, env, client, cached) {
   var timeout = setTimeout(function () { controller.abort(); }, 12000);
   var result;
   try {
-    var response = await client.fetcher("https://api.github.com" + apiPath, { method: "GET", headers: headers, redirect: "manual", signal: controller.signal });
+    // Invoke the runtime function directly: client.fetcher(...) changes `this`
+    // to our cache object and can trigger Illegal invocation in Workers.
+    var fetcher = client.fetcher;
+    var response = await fetcher("https://api.github.com" + apiPath, { method: "GET", headers: headers, redirect: "manual", signal: controller.signal });
     var data = response.status === 304 ? null : await readJsonBody(response);
     var now = Date.now();
     var limited = isRateLimitResponse(response.status, response.headers, data);
@@ -2247,6 +2250,7 @@ function generateHomePage(input, runtimeConfig) {
       if (!response.ok) {
         var serverMessage = body && typeof body === "object" ? (body.message || body.error) : "";
         var message = typeof serverMessage === "string" ? serverMessage : "";
+        if (body && body.error === "github_api_unavailable") message = "暂时无法连接 GitHub API，请稍后重试。";
         if (response.status === 429 || (response.status === 403 && /rate.?limit/i.test(message))) {
           var retryAfter = response.headers.get("retry-after");
           var reset = response.headers.get("x-ratelimit-reset");
