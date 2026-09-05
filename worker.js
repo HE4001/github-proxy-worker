@@ -589,27 +589,197 @@ function githubErrorInfo(status, headers, data, critical) {
   return { code: "github_api_error", status: status >= 400 && status < 500 ? status : 502 };
 }
 
-async function fetchGithubJson(apiPath, env, options) {
-  var target = "https://api.github.com" + apiPath;
+// Cache upstream JSON, never generated proxy URLs (which depend on the caller).
+// Memory/queues are isolate-local; Cache API shares completed entries in a PoP.
+var githubClients = new WeakMap();
+var GITHUB_FRESH_MS = 300000;
+var GITHUB_STALE_MS = 1800000;
+var GITHUB_MAX_ENTRY_BYTES = 1048576;
+
+async function githubClient(env, options) {
   var fetcher = getFetcher(env, options);
-  if (!fetcher) return { ok: false, network: true, error: { code: "github_api_unavailable", status: 502 } };
-  var init = { method: "GET", headers: makeGithubApiHeaders(env), redirect: "manual" };
-  try {
-    var response = await fetcher(target, init);
-    var data = await readJsonBody(response);
-    if (!response || response.status < 200 || response.status >= 300) {
-      return {
-        ok: false,
-        status: response ? response.status : 502,
-        headers: response ? response.headers : null,
-        data: data,
-        error: githubErrorInfo(response ? response.status : 502, response ? response.headers : null, data, !!(options && options.critical))
-      };
-    }
-    return { ok: true, status: response.status, headers: response.headers, data: data };
-  } catch (_) {
-    return { ok: false, network: true, error: { code: "github_api_unavailable", status: 502 } };
+  if (!fetcher) return null;
+  var scopes = githubClients.get(fetcher);
+  if (!scopes) { scopes = new Map(); githubClients.set(fetcher, scopes); }
+  var origin = options && options.request ? getOrigin(options.request) : "https://passage.invalid";
+  var token = getToken(env);
+  var key = origin + "\n" + token;
+  var client = scopes.get(key);
+  if (client) return client;
+  client = { fetcher: fetcher, entries: new Map(), bytes: 0, pending: new Map(), tail: Promise.resolve(),
+    blockedUntil: 0, strikes: 0, cache: null, cacheBase: null };
+  scopes.set(key, client);
+  // Deployment credentials are normally fixed; bound retained rotated scopes.
+  if (scopes.size > 8) scopes.delete(scopes.keys().next().value);
+  client.ready = (async function () {
+    try {
+      var cache = env && env.API_CACHE ? env.API_CACHE : (typeof caches !== "undefined" ? caches.default : null);
+      if (!cache || typeof crypto === "undefined" || !crypto.subtle) return;
+      var digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode("passage-v1\n" + token));
+      var hash = Array.from(new Uint8Array(digest)).map(function (v) { return v.toString(16).padStart(2, "0"); }).join("");
+      client.cache = cache;
+      client.cacheBase = origin + "/__passage_api_cache/v1/" + hash;
+    } catch (_) { /* Cache availability must not prevent API access. */ }
+  })();
+  return client;
+}
+
+function rememberGithub(client, key, entry) {
+  var previous = client.entries.get(key);
+  if (previous) client.bytes -= previous.bytes;
+  client.entries.delete(key);
+  if (!entry) return;
+  var bytes = new TextEncoder().encode(JSON.stringify(entry)).length;
+  if (bytes > GITHUB_MAX_ENTRY_BYTES) return;
+  client.entries.set(key, { value: entry, bytes: bytes });
+  client.bytes += bytes;
+  while (client.entries.size > 128 || client.bytes > 2 * GITHUB_MAX_ENTRY_BYTES) {
+    var first = client.entries.keys().next().value;
+    client.bytes -= client.entries.get(first).bytes;
+    client.entries.delete(first);
   }
+}
+
+async function readGithubCache(client, path) {
+  var memory = client.entries.get(path);
+  if (memory && memory.value.until > Date.now()) return memory.value;
+  if (memory) rememberGithub(client, path, null);
+  if (!client.cache) return null;
+  try {
+    var response = await client.cache.match(client.cacheBase + path);
+    var entry = response && await response.json();
+    if (entry && entry.until > Date.now() && typeof entry.status === "number") {
+      rememberGithub(client, path, entry);
+      return entry;
+    }
+  } catch (_) { }
+  return null;
+}
+
+async function writeGithubCache(client, path, entry) {
+  rememberGithub(client, path, entry);
+  if (!client.cache) return;
+  try {
+    if (!entry) { await client.cache.delete(client.cacheBase + path); return; }
+    var body = JSON.stringify(entry);
+    if (new TextEncoder().encode(body).length > GITHUB_MAX_ENTRY_BYTES) {
+      await client.cache.delete(client.cacheBase + path);
+      return;
+    }
+    await client.cache.put(client.cacheBase + path, new Response(body, { headers: {
+      "Content-Type": "application/json", "Cache-Control": "public, max-age=" + Math.max(1, Math.ceil((entry.until - Date.now()) / 1000))
+    } }));
+  } catch (_) { /* Fall back to the bounded memory cache. */ }
+}
+
+function githubCachedResult(entry, stale) {
+  return { ok: entry.status >= 200 && entry.status < 300, status: entry.status,
+    data: entry.data, headers: new Headers(entry.headers), stale: !!stale || !!entry.degraded };
+}
+
+function githubPausedResult(until) {
+  return { ok: false, status: 429, data: null, headers: new Headers({
+    "Retry-After": String(Math.max(1, Math.ceil((until - Date.now()) / 1000))),
+    "X-RateLimit-Remaining": "0", "X-RateLimit-Reset": String(Math.ceil(until / 1000))
+  }) };
+}
+
+function githubDelay(headers, now, fallback) {
+  var retry = headers.get("retry-after");
+  var retryUntil = retry && /^\d+(\.\d+)?$/.test(retry.trim()) ? now + Number(retry) * 1000 : Date.parse(retry || "");
+  var reset = headers.get("x-ratelimit-remaining") === "0" ? Number(headers.get("x-ratelimit-reset")) * 1000 : 0;
+  var until = Math.max(isFinite(retryUntil) ? retryUntil : 0, isFinite(reset) ? reset : 0);
+  return until > now ? until : now + fallback;
+}
+
+async function githubUpstream(apiPath, env, client, cached) {
+  var marker = await readGithubCache(client, "/__cooldown");
+  if (marker) client.blockedUntil = Math.max(client.blockedUntil, marker.until);
+  if (client.blockedUntil > Date.now()) {
+    return cached && cached.status === 200 && cached.until > Date.now() ? githubCachedResult(cached, true) : githubPausedResult(client.blockedUntil);
+  }
+  var headers = makeGithubApiHeaders(env);
+  if (cached && cached.status === 200) {
+    var validators = new Headers(cached.headers);
+    if (validators.get("etag")) headers.set("If-None-Match", validators.get("etag"));
+    else if (validators.get("last-modified")) headers.set("If-Modified-Since", validators.get("last-modified"));
+  }
+  var controller = new AbortController();
+  var timeout = setTimeout(function () { controller.abort(); }, 12000);
+  var result;
+  try {
+    var response = await client.fetcher("https://api.github.com" + apiPath, { method: "GET", headers: headers, redirect: "manual", signal: controller.signal });
+    var data = response.status === 304 ? null : await readJsonBody(response);
+    var now = Date.now();
+    var limited = isRateLimitResponse(response.status, response.headers, data);
+    if (limited || response.headers.get("x-ratelimit-remaining") === "0") {
+      if (limited) client.strikes = Math.min(6, client.strikes + 1);
+      client.blockedUntil = githubDelay(response.headers, now, 60000 * Math.pow(2, Math.max(0, client.strikes - 1)));
+      await writeGithubCache(client, "/__cooldown", { status: 429, until: client.blockedUntil, fresh: client.blockedUntil, headers: [], data: null });
+    } else if (response.ok || response.status === 304) { client.strikes = 0; }
+    if (response.status === 304 && cached && cached.status === 200) {
+      var merged = new Headers(cached.headers);
+      response.headers.forEach(function (value, name) { merged.set(name, value); });
+      cached = { status: 200, data: cached.data, headers: Array.from(merged.entries()), fresh: now + GITHUB_FRESH_MS, until: now + GITHUB_STALE_MS };
+      await writeGithubCache(client, apiPath, cached);
+      return githubCachedResult(cached, false);
+    }
+    result = limited ? githubPausedResult(client.blockedUntil) : { ok: response.ok && data !== null, status: response.ok && data === null ? 502 : response.status, data: data, headers: response.headers };
+    if (result.ok || response.status === 404) {
+      var ttl = result.ok ? GITHUB_FRESH_MS : 60000;
+      await writeGithubCache(client, apiPath, { status: response.status, data: data, headers: Array.from(response.headers.entries()), fresh: now + ttl, until: now + (result.ok ? GITHUB_STALE_MS : ttl) });
+    } else if (!limited && response.status < 500) {
+      // Never serve old data after access was revoked or the resource vanished.
+      await writeGithubCache(client, apiPath, null);
+    }
+    if (!limited && result.status < 500) return result;
+  } catch (_) {
+    result = { ok: false, status: 502, network: true, headers: new Headers(), data: null };
+  } finally { clearTimeout(timeout); }
+  if (cached && cached.status === 200 && cached.until > Date.now()) {
+    cached = Object.assign({}, cached, { fresh: Math.min(cached.until, Date.now() + 15000), degraded: true });
+    await writeGithubCache(client, apiPath, cached);
+    return githubCachedResult(cached, true);
+  }
+  if (result.status >= 500) await writeGithubCache(client, apiPath, { status: 502, data: null, headers: [], fresh: Date.now() + 10000, until: Date.now() + 10000 });
+  return result;
+}
+
+async function fetchGithubJson(apiPath, env, options) {
+  var client = await githubClient(env, options);
+  if (!client) return { ok: false, error: { code: "github_api_unavailable", status: 502 } };
+  await client.ready;
+  var pending = client.pending.get(apiPath);
+  if (!pending) {
+    if (client.pending.size >= 32) return { ok: false, error: { code: "github_api_unavailable", status: 503 }, headers: new Headers({ "Retry-After": "5" }) };
+    pending = (async function () {
+      var cached = await readGithubCache(client, apiPath);
+      if (cached && cached.fresh > Date.now()) return githubCachedResult(cached, false);
+      // A credential-scoped queue prevents the three secondary repo requests
+      // from hitting GitHub in parallel. Recheck cooldown at dispatch time.
+      var queuedAt = Date.now();
+      var task = client.tail.then(function () {
+        if (Date.now() - queuedAt > 10000) return { ok: false, status: 503, headers: new Headers({ "Retry-After": "5" }), data: null };
+        return githubUpstream(apiPath, env, client, cached);
+      });
+      client.tail = task.then(function () {}, function () {});
+      return task;
+    })();
+    client.pending.set(apiPath, pending);
+    pending.then(function () { client.pending.delete(apiPath); }, function () { client.pending.delete(apiPath); });
+  }
+  var result = await pending;
+  if (!result.ok) return Object.assign({}, result, { error: githubErrorInfo(result.status, result.headers, result.data, !!(options && options.critical)) });
+  return result;
+}
+
+function githubFailureResponse(result, request) {
+  var response = errorResponse(result.error.code, result.error.status, request);
+  ["retry-after", "x-ratelimit-reset", "x-ratelimit-remaining"].forEach(function (name) {
+    var value = result.headers && result.headers.get(name);
+    if (value) response.headers.set(name, value);
+  });
+  return response;
 }
 
 function mapRepository(value) {
@@ -717,18 +887,21 @@ async function handleRepoApi(request, env, config) {
   if (!repository) return errorResponse("invalid_repository_url", 400, request);
 
   var repoPath = buildGithubRepoPath(repository.owner, repository.repo);
-  var repoResult = await fetchGithubJson(repoPath, env, { critical: true });
-  if (!repoResult.ok) return errorResponse(repoResult.error.code, repoResult.error.status, request);
+  var repoResult = await fetchGithubJson(repoPath, env, { critical: true, request: request });
+  if (!repoResult.ok) return githubFailureResponse(repoResult, request);
   var mappedRepository = mapRepository(repoResult.data);
   if (!mappedRepository) return errorResponse("invalid_github_response", 502, request);
   var branch = mappedRepository.default_branch || "HEAD";
 
   var results = await Promise.all([
-    fetchGithubJson(buildGithubRepoPath(repository.owner, repository.repo, "/releases?per_page=20"), env, { critical: false }),
-    fetchGithubJson(buildGithubContentsPath(repository.owner, repository.repo, "", branch), env, { critical: false }),
-    fetchGithubJson(buildGithubRepoPath(repository.owner, repository.repo, "/readme?ref=" + encodeURIComponent(branch)), env, { critical: false })
+    fetchGithubJson(buildGithubRepoPath(repository.owner, repository.repo, "/releases?per_page=20"), env, { critical: false, request: request }),
+    fetchGithubJson(buildGithubContentsPath(repository.owner, repository.repo, "", branch), env, { critical: false, request: request }),
+    fetchGithubJson(buildGithubRepoPath(repository.owner, repository.repo, "/readme?ref=" + encodeURIComponent(branch)), env, { critical: false, request: request })
   ]);
   var warnings = [];
+  [repoResult].concat(results).forEach(function (result, index) {
+    if (result.stale) warnings.push({ resource: ["repository", "releases", "contents", "readme"][index], code: "github_cached_response", status: 200 });
+  });
   var releasesResult = results[0];
   var contentsResult = results[1];
   var readmeResult = results[2];
@@ -785,12 +958,12 @@ async function handleContentsApi(request, env, config) {
   var requestUrl = new URL(request.url);
   var query = parseContentsQuery(requestUrl);
   if (!query) return errorResponse("invalid_contents_query", 400, request);
-  var result = await fetchGithubJson(buildGithubContentsPath(query.owner, query.repo, query.path, query.ref), env, { critical: true });
-  if (!result.ok) return errorResponse(result.error.code, result.error.status, request);
+  var result = await fetchGithubJson(buildGithubContentsPath(query.owner, query.repo, query.path, query.ref), env, { critical: true, request: request });
+  if (!result.ok) return githubFailureResponse(result, request);
   var values = Array.isArray(result.data) ? result.data : [result.data];
   var contents = values.map(function (entry) { return mapContent(entry, request, config); }).filter(Boolean);
-  if (!contents.length && result.data !== null) return errorResponse("invalid_github_response", 502, request);
-  return jsonResponse({ contents: contents, warnings: [] }, 200, request);
+  if (!contents.length && !Array.isArray(result.data)) return errorResponse("invalid_github_response", 502, request);
+  return jsonResponse({ contents: contents, warnings: result.stale ? [{ resource: "contents", code: "github_cached_response", status: 200 }] : [] }, 200, request);
 }
 
 async function fetchProxyResource(request, env, config, targetInfo) {
@@ -884,7 +1057,7 @@ function generateHomePage(input, runtimeConfig) {
   var clientConfig = jsonForScript({ prefix: normalizedPrefix });
 
   return String.raw`<!doctype html>
-<html lang="zh-CN" data-theme="auto">
+<html lang="zh-CN" data-theme="light">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -895,91 +1068,57 @@ function generateHomePage(input, runtimeConfig) {
   <style>
     :root {
       color-scheme: light;
-      --page: #f3f5f1;
-      --page-deep: #e9ede7;
-      --surface: #fbfcfa;
-      --surface-strong: #ffffff;
-      --surface-soft: #eef1ec;
-      --ink: #171c1a;
-      --ink-soft: #3f4945;
-      --muted: #6d7772;
-      --line: #d6ddd7;
-      --line-strong: #adb9b1;
-      --accent: #176b5b;
-      --accent-strong: #0f5b4d;
-      --accent-ink: #ffffff;
-      --blue: #315bd7;
-      --blue-soft: #e8edff;
-      --success: #14764f;
-      --success-soft: #e1f3e9;
-      --warning: #946200;
-      --warning-soft: #fff4cf;
-      --danger: #c9343f;
-      --danger-soft: #fff0f0;
-      --shadow-sm: 0 2px 8px rgba(26, 38, 31, .06);
-      --shadow: 0 24px 64px rgba(26, 38, 31, .10);
-      --radius-lg: 22px;
-      --radius: 15px;
-      --radius-sm: 11px;
+      --page: #ffffff;
+      --section: #f5f5f7;
+      --card: #ffffff;
+      --raised: #ffffff;
+      --ink: #1d1d1f;
+      --ink-soft: #4b4b50;
+      --muted: #6e6e73;
+      --line: rgba(0, 0, 0, .075);
+      --line-strong: rgba(0, 0, 0, .14);
+      --blue: #0071e3;
+      --blue-hover: #0077ed;
+      --blue-soft: rgba(0, 113, 227, .08);
+      --success: #247a3f;
+      --success-soft: transparent;
+      --warning: #8a5d00;
+      --warning-soft: #fff8e7;
+      --danger: #c4323f;
+      --danger-soft: #fff4f5;
+      --shadow-sm: 0 6px 20px rgba(0, 0, 0, .035);
+      --shadow: 0 18px 54px rgba(0, 0, 0, .055);
+      --radius-xl: 24px;
+      --radius-lg: 18px;
+      --radius: 14px;
+      --radius-sm: 10px;
       --mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
-      --sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
       font-family: var(--sans);
     }
 
     :root[data-theme="dark"] {
       color-scheme: dark;
-      --page: #0d1210;
-      --page-deep: #070a08;
-      --surface: #151b18;
-      --surface-strong: #1c2420;
-      --surface-soft: #111714;
-      --ink: #f0f5f1;
-      --ink-soft: #c6d0ca;
-      --muted: #8e9a93;
-      --line: #2c3731;
-      --line-strong: #46554d;
-      --accent: #2c927d;
-      --accent-strong: #3ba58f;
-      --accent-ink: #ffffff;
-      --blue: #8aa3ff;
-      --blue-soft: #1b2749;
-      --success: #55c38c;
-      --success-soft: #163126;
-      --warning: #e6b84b;
-      --warning-soft: #372d16;
-      --danger: #ff8d92;
-      --danger-soft: #3b1d21;
-      --shadow-sm: 0 2px 8px rgba(0, 0, 0, .22);
-      --shadow: 0 28px 78px rgba(0, 0, 0, .38);
-    }
-
-    @media (prefers-color-scheme: dark) {
-      :root[data-theme="auto"] {
-        color-scheme: dark;
-        --page: #0d1210;
-        --page-deep: #070a08;
-        --surface: #151b18;
-        --surface-strong: #1c2420;
-        --surface-soft: #111714;
-        --ink: #f0f5f1;
-        --ink-soft: #c6d0ca;
-        --muted: #8e9a93;
-        --line: #2c3731;
-        --line-strong: #46554d;
-        --accent: #2c927d;
-        --accent-strong: #3ba58f;
-        --accent-ink: #ffffff;
-        --blue: #8aa3ff;
-        --blue-soft: #1b2749;
-        --success: #55c38c;
-        --success-soft: #163126;
-        --warning: #e6b84b;
-        --warning-soft: #372d16;
-        --danger: #ff8d92;
-        --danger-soft: #3b1d21;
-        --shadow-sm: 0 2px 8px rgba(0, 0, 0, .22);
-        --shadow: 0 28px 78px rgba(0, 0, 0, .38);
-      }
+      --page: #000000;
+      --section: #1d1d1f;
+      --card: #161617;
+      --raised: #232325;
+      --ink: #f5f5f7;
+      --ink-soft: #d2d2d7;
+      --muted: #a1a1a6;
+      --line: rgba(255, 255, 255, .105);
+      --line-strong: rgba(255, 255, 255, .2);
+      --blue: #2997ff;
+      --blue-hover: #40a1ff;
+      --blue-soft: rgba(41, 151, 255, .14);
+      --success: #5fc67a;
+      --success-soft: transparent;
+      --warning: #ffd36a;
+      --warning-soft: rgba(255, 211, 106, .1);
+      --danger: #ff8a94;
+      --danger-soft: rgba(255, 138, 148, .11);
+      --shadow-sm: 0 7px 24px rgba(0, 0, 0, .22);
+      --shadow: 0 20px 64px rgba(0, 0, 0, .35);
     }
 
     * { box-sizing: border-box; }
@@ -988,32 +1127,26 @@ function generateHomePage(input, runtimeConfig) {
       min-height: 100vh;
       margin: 0;
       color: var(--ink);
-      background:
-        radial-gradient(circle at 12% 2%, color-mix(in srgb, var(--blue) 10%, transparent), transparent 32rem),
-        radial-gradient(circle at 88% 18%, color-mix(in srgb, var(--accent) 9%, transparent), transparent 30rem),
-        var(--page);
+      background: var(--page);
+      font-family: var(--sans);
       line-height: 1.55;
       -webkit-font-smoothing: antialiased;
-    }
-    body::before {
-      position: fixed;
-      z-index: -1;
-      inset: 0;
-      background-image: radial-gradient(color-mix(in srgb, var(--line-strong) 28%, transparent) 1px, transparent 1px);
-      background-size: 24px 24px;
-      mask-image: linear-gradient(to bottom, rgba(0, 0, 0, .48), transparent 700px);
-      opacity: .7;
-      content: "";
-      pointer-events: none;
+      text-rendering: optimizeLegibility;
     }
     button, input { font: inherit; }
     button, a { -webkit-tap-highlight-color: transparent; }
     button { color: inherit; }
     a { color: var(--blue); text-underline-offset: 3px; }
-    a:hover { color: var(--ink); }
-    :focus-visible { outline: 3px solid var(--blue); outline-offset: 3px; }
+    a:hover { color: var(--blue-hover); }
+    :focus-visible {
+      outline: 3px solid rgba(0, 113, 227, .28);
+      outline-offset: 3px;
+    }
+    :root[data-theme="dark"] :focus-visible { outline-color: rgba(41, 151, 255, .42); }
     [hidden] { display: none !important; }
     ::selection { color: var(--ink); background: var(--blue-soft); }
+    h1, h2, h3, p { overflow-wrap: anywhere; }
+    svg { display: block; }
 
     .skip-link {
       position: fixed;
@@ -1022,234 +1155,126 @@ function generateHomePage(input, runtimeConfig) {
       left: 12px;
       padding: 10px 14px;
       border-radius: 10px;
-      color: var(--accent-ink);
-      background: var(--accent);
-      font-weight: 800;
+      color: #ffffff;
+      background: var(--blue);
+      font-weight: 600;
       transform: translateY(-150%);
+      transition: transform .18s ease;
     }
     .skip-link:focus { transform: translateY(0); }
 
     .shell {
-      width: min(1160px, calc(100% - 48px));
+      width: min(1120px, calc(100% - 64px));
       margin-inline: auto;
     }
-    .icon-button {
-      width: 44px;
-      height: 44px;
-      display: grid;
-      place-items: center;
-      border: 1px solid var(--line);
-      border-radius: 12px;
-      background: var(--surface-strong);
-      box-shadow: var(--shadow-sm);
-      cursor: pointer;
-      font-size: 1rem;
+    .visually-hidden {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      margin: -1px;
+      padding: 0;
+      border: 0;
+      clip: rect(0 0 0 0);
+      white-space: nowrap;
     }
-    .icon-button:hover { border-color: var(--line-strong); background: var(--surface-strong); }
 
-    main { padding: 0 0 72px; }
-    .hero { padding: clamp(46px, 7vw, 86px) 0 16px; }
-    .hero-grid {
-      display: grid;
-      gap: clamp(24px, 4vw, 36px);
+    main { padding-bottom: 88px; }
+    .hero {
+      padding: clamp(68px, 9vw, 104px) 0 58px;
+      text-align: center;
     }
-    .hero-grid > * { min-width: 0; }
     .hero-intro {
-      max-width: 890px;
-    }
-    .eyebrow {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      margin: 0 0 18px;
-      padding: 6px 11px;
-      border: 1px solid var(--line);
-      border-radius: 999px;
-      color: var(--muted);
-      background: color-mix(in srgb, var(--surface) 82%, transparent);
-      font-family: var(--mono);
-      font-size: .68rem;
-      font-weight: 700;
-      letter-spacing: .05em;
-      text-transform: uppercase;
-    }
-    .eyebrow::before {
-      width: 7px;
-      height: 7px;
-      border-radius: 50%;
-      background: var(--success);
-      box-shadow: 0 0 0 3px color-mix(in srgb, var(--success) 13%, transparent);
-      content: "";
-    }
-    h1, h2, h3, p { overflow-wrap: anywhere; }
-    h1 {
       max-width: 900px;
-      margin: 0;
-      font-size: clamp(2.85rem, 5vw, 4.4rem);
-      font-weight: 780;
-      line-height: 1.02;
-      letter-spacing: -.06em;
+      margin-inline: auto;
+      animation: enter .5s ease-out both;
+    }
+    h1 {
+      max-width: 860px;
+      margin: 0 auto;
+      font-size: clamp(3.75rem, 6.2vw, 4.5rem);
+      font-weight: 600;
+      line-height: 1.08;
+      letter-spacing: -.055em;
       text-wrap: balance;
     }
-    .highlight {
-      display: inline-block;
-      color: var(--accent);
-    }
+    .highlight { color: inherit; }
     .hero-copy {
-      max-width: 760px;
-      margin: 20px 0 0;
-      color: var(--ink-soft);
-      font-size: clamp(.98rem, 1.5vw, 1.08rem);
-    }
-    .hero-points {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px 24px;
-      margin: -2px 0 0;
-      padding: 0;
-      list-style: none;
-    }
-    .hero-point {
-      display: inline-flex;
-      align-items: center;
-      gap: 7px;
+      max-width: 620px;
+      margin: 24px auto 0;
       color: var(--muted);
-      font-size: .84rem;
+      font-size: clamp(1rem, 1.5vw, 1.12rem);
+      line-height: 1.65;
+      text-wrap: balance;
     }
-    .hero-point::before {
-      width: 18px;
-      height: 18px;
-      display: grid;
-      place-items: center;
-      border-radius: 50%;
-      color: var(--success);
-      background: var(--success-soft);
-      content: "✓";
-      font-size: .68rem;
-      font-weight: 900;
-    }
+
     .command-panel {
       position: relative;
-      display: grid;
-      grid-template-columns: 220px minmax(0, 1fr);
-      grid-template-areas: "head area" "head quick";
-      gap: 16px 28px;
-      overflow: hidden;
-      padding: clamp(22px, 3vw, 30px);
+      max-width: 760px;
+      margin: 36px auto 0;
+      padding: 24px;
       border: 1px solid var(--line);
-      border-radius: var(--radius-lg);
-      background: color-mix(in srgb, var(--surface) 97%, transparent);
+      border-radius: var(--radius-xl);
+      background: var(--card);
       box-shadow: var(--shadow);
+      text-align: left;
+      animation: enter .5s .06s ease-out both;
     }
-    .command-panel::before {
-      position: absolute;
-      inset: 0 auto 0 0;
-      width: 4px;
-      background: linear-gradient(180deg, var(--accent), var(--blue));
-      content: "";
-    }
-    .command-head {
-      grid-area: head;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      gap: 24px;
-      margin: 0;
-      padding-right: 24px;
-      border-right: 1px solid var(--line);
-    }
-    .command-kicker {
-      display: block;
-      margin-bottom: 6px;
-      color: var(--accent);
-      font-family: var(--mono);
-      font-size: .66rem;
-      font-weight: 700;
-      letter-spacing: .07em;
-      text-transform: uppercase;
-    }
-    .command-head h2 {
-      margin: 0;
-      font-size: clamp(1.35rem, 2.2vw, 1.7rem);
-      line-height: 1.12;
-      letter-spacing: -.035em;
-    }
-    .command-tools {
-      flex: 0 0 auto;
+    .url-form { display: grid; gap: 12px; }
+    .input-label-row {
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 12px;
     }
-    .command-note {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      margin: 0;
-      color: var(--muted);
-      font-family: var(--mono);
-      font-size: .67rem;
-    }
-    .command-note::before { color: var(--success); content: "●"; font-size: .58rem; }
-
-    .command-area {
-      grid-area: area;
-      min-width: 0;
-      margin: 0;
-      padding: 0;
-    }
-    .url-form {
-      display: grid;
-      gap: 11px;
-    }
-    .input-label-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      flex-wrap: wrap;
-      gap: 8px 14px;
-    }
     .input-label {
+      color: var(--ink);
+      font-size: .85rem;
+      font-weight: 600;
+    }
+    .input-meta {
       display: flex;
       align-items: center;
       gap: 8px;
-      color: var(--ink-soft);
-      font-size: .84rem;
-      font-weight: 800;
     }
-    .input-label-note { color: var(--muted); font-family: var(--mono); font-size: .66rem; font-weight: 600; }
-    .input-action-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; }
+    .input-action-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 10px;
+    }
     .url-field {
       min-width: 0;
       display: grid;
-      grid-template-columns: minmax(0, 1fr) auto;
+      grid-template-columns: minmax(0, 1fr) 44px;
       align-items: center;
       border: 1px solid var(--line-strong);
-      border-radius: 14px;
-      background: var(--surface-strong);
-      box-shadow: inset 0 1px 0 color-mix(in srgb, var(--surface-strong) 80%, transparent);
-      transition: border-color .16s ease, box-shadow .16s ease, background .16s ease;
+      border-radius: var(--radius);
+      background: var(--raised);
+      transition: border-color .18s ease, box-shadow .18s ease, background .18s ease;
     }
     .url-field:focus-within {
       border-color: var(--blue);
-      box-shadow: 0 0 0 3px color-mix(in srgb, var(--blue) 18%, transparent);
+      box-shadow: 0 0 0 3px var(--blue-soft);
     }
-    .url-field:has(.url-input[aria-invalid="true"]) { border-color: var(--danger); background: var(--danger-soft); }
+    .url-field:has(.url-input[aria-invalid="true"]) {
+      border-color: var(--danger);
+      background: var(--danger-soft);
+    }
     .url-input {
       width: 100%;
       min-width: 0;
       height: 58px;
-      padding: 0 16px;
+      padding: 0 4px 0 16px;
       border: 0;
+      border-radius: inherit;
       color: var(--ink);
       background: transparent;
-      outline: none;
+      outline: 0;
       caret-color: var(--blue);
     }
-    .url-input::placeholder { color: var(--muted); opacity: .78; }
-    .url-input[aria-invalid="true"] { background: transparent; }
+    .url-input::placeholder { color: var(--muted); opacity: .72; }
     @supports not selector(:has(*)) {
-      .url-input[aria-invalid="true"] { border-radius: 8px; box-shadow: inset 0 0 0 2px var(--danger); }
+      .url-input[aria-invalid="true"] { box-shadow: inset 0 0 0 1px var(--danger); }
     }
     .clear-button {
       width: 44px;
@@ -1261,532 +1286,548 @@ function generateHomePage(input, runtimeConfig) {
       color: var(--muted);
       background: transparent;
       cursor: pointer;
-      font-size: 1.2rem;
+      font-size: 1.25rem;
+      line-height: 1;
+      transition: color .18s ease, background .18s ease;
     }
-    .clear-button:hover { color: var(--ink); background: var(--surface-soft); }
-    .primary-button, .secondary-button, .text-button {
-      border-radius: 11px;
+    .clear-button:hover { color: var(--ink); background: var(--section); }
+
+    .primary-button,
+    .secondary-button,
+    .text-button {
+      min-height: 44px;
+      border-radius: 12px;
       cursor: pointer;
-      font-weight: 800;
+      font-weight: 600;
+      transition: background .18s ease, border-color .18s ease, color .18s ease, transform .18s ease;
     }
     .primary-button {
-      min-height: 48px;
-      padding: 0 18px;
-      border: 1px solid color-mix(in srgb, var(--accent) 72%, #000000);
-      color: var(--accent-ink);
-      background: var(--accent);
-      box-shadow: 0 1px 0 rgba(31, 35, 40, .12), inset 0 1px 0 rgba(255, 255, 255, .14);
+      padding: 0 20px;
+      border: 1px solid var(--blue);
+      color: #ffffff;
+      background: var(--blue);
       white-space: nowrap;
-      transition: background .16s ease, border-color .16s ease;
     }
-    .primary-button:hover { border-color: var(--accent-strong); background: var(--accent-strong); }
-    .primary-button:active { filter: brightness(.92); }
-    .primary-button:disabled { cursor: wait; opacity: .65; }
-    .input-submit { min-height: 60px; min-inline-size: 154px; padding-inline: 22px; border-radius: 14px; }
+    .primary-button:hover { border-color: var(--blue-hover); color: #ffffff; background: var(--blue-hover); transform: translateY(-1px); }
+    .primary-button:active { transform: scale(.98); }
+    .primary-button:disabled { cursor: wait; opacity: .58; transform: none; }
+    .input-submit {
+      min-width: 118px;
+      min-height: 60px;
+      border-radius: var(--radius);
+    }
+    .secondary-button {
+      padding: 0 14px;
+      border: 1px solid var(--line-strong);
+      color: var(--ink);
+      background: var(--raised);
+    }
+    .secondary-button:hover { border-color: var(--ink-soft); background: var(--section); transform: translateY(-1px); }
+    .secondary-button:active { transform: scale(.98); }
     .form-hint {
       min-height: 1.5em;
       margin: 0;
       padding-inline: 2px;
       color: var(--muted);
-      font-size: .83rem;
+      font-size: .8rem;
     }
-    .form-hint.error { color: var(--danger); font-weight: 700; }
-    .form-hint.success { color: var(--success); font-weight: 700; }
+    .form-hint.error { color: var(--danger); font-weight: 600; }
+    .form-hint.success { color: var(--success); font-weight: 600; }
     .input-kind {
       display: inline-flex;
       align-items: center;
-      flex: 0 0 auto;
       min-height: 26px;
       padding: 3px 9px;
       border: 1px solid var(--line);
       border-radius: 999px;
       color: var(--muted);
-      background: var(--surface-soft);
-      font-family: var(--mono);
-      font-size: .67rem;
-      font-weight: 800;
-      letter-spacing: .04em;
-      text-transform: uppercase;
+      background: var(--section);
+      font-size: .72rem;
+      font-weight: 600;
+      white-space: nowrap;
     }
-    .input-kind.valid { color: var(--success); border-color: color-mix(in srgb, var(--success) 35%, var(--line)); background: var(--success-soft); }
+    .input-kind.valid {
+      color: var(--success);
+      border-color: rgba(36, 122, 63, .2);
+      background: var(--success-soft);
+    }
+    .icon-button {
+      width: 44px;
+      height: 44px;
+      display: grid;
+      place-items: center;
+      border: 0;
+      border-radius: 50%;
+      color: var(--muted);
+      background: transparent;
+      cursor: pointer;
+      font-size: 1rem;
+      transition: color .18s ease, background .18s ease;
+    }
+    .icon-button:hover { color: var(--ink); background: var(--section); }
+
     .quick-links {
-      grid-area: quick;
       display: flex;
       align-items: center;
       flex-wrap: wrap;
-      gap: 8px;
-      margin-top: 0;
+      gap: 4px;
+      margin-top: 2px;
+      padding-inline: 2px;
     }
-    .quick-label { margin-right: 2px; color: var(--muted); font-size: .76rem; }
+    .quick-label { color: var(--muted); font-size: .78rem; }
+    .quick-dot { color: var(--line-strong); font-size: .75rem; }
     .example-button {
-      min-height: 30px;
-      padding: 0 10px;
-      border: 1px solid var(--line);
-      border-radius: 999px;
-      color: var(--ink-soft);
-      background: var(--surface-soft);
+      min-height: 44px;
+      padding: 0 5px;
+      border: 0;
+      color: var(--blue);
+      background: transparent;
       cursor: pointer;
-      font-family: var(--mono);
-      font-size: .72rem;
+      font-size: .78rem;
+      font-weight: 500;
     }
-    .example-button:hover { border-color: var(--line-strong); color: var(--ink); background: var(--surface-strong); }
+    .example-button:hover { color: var(--blue-hover); text-decoration: underline; }
     kbd {
       padding: 2px 5px;
       border: 1px solid var(--line);
-      border-bottom-width: 2px;
+      border-bottom-color: var(--line-strong);
       border-radius: 5px;
       color: var(--muted);
-      background: var(--surface-soft);
+      background: var(--section);
       font-family: var(--mono);
       font-size: .68rem;
     }
 
-    .feature-strip {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 0;
-      margin-top: 28px;
-      border-top: 1px solid var(--line);
-      border-bottom: 1px solid var(--line);
-    }
-    .feature-item {
-      min-height: 100px;
-      padding: 22px 24px;
-      border-right: 1px solid var(--line);
-    }
-    .feature-item:first-child { padding-left: 0; }
-    .feature-item:last-child { padding-right: 0; border-right: 0; }
-    .feature-index {
-      display: block;
-      margin-bottom: 14px;
-      color: var(--muted);
-      font-family: var(--mono);
-      font-size: .67rem;
-    }
-    .feature-item strong { display: block; font-size: .95rem; }
-    .feature-item p { margin: 6px 0 0; color: var(--muted); font-size: .86rem; }
-
-    .results { max-width: 1080px; margin: 36px auto 0; scroll-margin-top: 28px; }
-    .panel {
-      margin-top: 16px;
-      padding: clamp(20px, 3vw, 32px);
-      border: 1px solid var(--line);
-      border-radius: var(--radius-lg);
-      background: color-mix(in srgb, var(--surface) 98%, transparent);
-      box-shadow: none;
+    .results {
+      max-width: 1040px;
+      margin: 48px auto 0;
       scroll-margin-top: 28px;
     }
-    #overview-panel { border-top: 3px solid var(--accent); box-shadow: var(--shadow-sm); }
-    #resource-result { border-top: 3px solid var(--blue); box-shadow: var(--shadow-sm); }
+    .panel {
+      margin-top: 20px;
+      padding: clamp(24px, 3.4vw, 34px);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-xl);
+      background: var(--card);
+      box-shadow: var(--shadow-sm);
+      scroll-margin-top: 28px;
+      animation: result-enter .28s ease-out both;
+    }
     .panel-header {
       display: flex;
       align-items: flex-start;
       justify-content: space-between;
-      gap: 22px;
-      margin-bottom: 22px;
+      gap: 24px;
+      margin-bottom: 24px;
     }
     .section-kicker {
       display: block;
-      margin-bottom: 7px;
-      color: var(--accent);
-      font-family: var(--mono);
-      font-size: .68rem;
-      font-weight: 800;
-      letter-spacing: .08em;
-      text-transform: uppercase;
+      margin-bottom: 8px;
+      color: var(--muted);
+      font-size: .71rem;
+      font-weight: 600;
+      letter-spacing: .03em;
     }
     .panel h2 {
       margin: 0;
-      font-size: clamp(1.4rem, 3vw, 1.9rem);
-      line-height: 1.1;
-      letter-spacing: -.045em;
+      font-size: clamp(1.55rem, 3vw, 2rem);
+      font-weight: 600;
+      line-height: 1.16;
+      letter-spacing: -.035em;
     }
-    .panel h3 { margin: 0; font-size: 1rem; }
-    .section-caption { margin: 7px 0 0; color: var(--muted); font-size: .87rem; }
+    .panel h3 { margin: 0; font-size: 1rem; font-weight: 600; }
+    .section-caption { margin: 8px 0 0; color: var(--muted); font-size: .86rem; }
     .badge {
       display: inline-flex;
       align-items: center;
-      min-height: 27px;
-      padding: 3px 10px;
+      min-height: 26px;
+      padding: 3px 9px;
       border: 1px solid var(--line);
       border-radius: 999px;
       color: var(--muted);
-      background: color-mix(in srgb, var(--surface-soft) 82%, var(--surface));
-      font-family: var(--mono);
-      font-size: .67rem;
-      font-weight: 800;
-      letter-spacing: .03em;
+      background: var(--section);
+      font-size: .69rem;
+      font-weight: 600;
       white-space: nowrap;
     }
-    .badge.success { color: var(--success); border-color: color-mix(in srgb, var(--success) 35%, var(--line)); background: var(--success-soft); }
-    .badge.warning { color: var(--warning); border-color: color-mix(in srgb, var(--warning) 38%, var(--line)); background: var(--warning-soft); }
-    .badge.danger { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 35%, var(--line)); background: var(--danger-soft); }
+    .badge.success { color: var(--success); border-color: rgba(36, 122, 63, .2); background: var(--success-soft); }
+    .badge.warning { color: var(--warning); border-color: rgba(138, 93, 0, .2); background: var(--warning-soft); }
+    .badge.danger { color: var(--danger); border-color: rgba(196, 50, 63, .2); background: var(--danger-soft); }
 
-    .status-panel { text-align: left; }
+    .status-panel { text-align: center; }
     .status-orbit {
-      position: relative;
-      width: 52px;
-      height: 52px;
-      margin: 0 0 18px;
-      border: 1px solid var(--line-strong);
+      width: 30px;
+      height: 30px;
+      margin: 0 auto 18px;
+      border: 2px solid var(--line);
+      border-top-color: var(--blue);
       border-radius: 50%;
+      animation: spin .8s linear infinite;
     }
-    .status-orbit::before {
-      position: absolute;
-      top: -4px;
-      left: 50%;
-      width: 10px;
-      height: 10px;
-      border: 2px solid var(--surface);
-      border-radius: 50%;
-      background: var(--accent-strong);
-      content: "";
-      transform-origin: 0 30px;
-      animation: orbit 1s linear infinite;
+    .status-title { margin: 0; font-size: 1.08rem; font-weight: 600; }
+    .status-copy { max-width: 620px; margin: 8px auto 0; color: var(--muted); font-size: .9rem; }
+    .status-actions { display: flex; justify-content: center; gap: 10px; margin-top: 20px; }
+    .skeleton-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-top: 26px;
     }
-    @keyframes orbit { to { transform: rotate(360deg); } }
-    .status-title { margin: 0; font-size: 1.13rem; font-weight: 850; }
-    .status-copy { max-width: 650px; margin: 7px 0 0; color: var(--muted); }
-    .status-actions { display: flex; justify-content: flex-start; gap: 10px; margin-top: 18px; }
-    .skeleton-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 25px; }
     .skeleton {
-      height: 68px;
+      height: 64px;
       border-radius: 12px;
-      background: linear-gradient(100deg, var(--surface-soft) 20%, color-mix(in srgb, var(--line) 65%, var(--surface)) 45%, var(--surface-soft) 70%);
-      background-size: 230% 100%;
-      animation: shimmer 1.35s ease infinite;
+      background: linear-gradient(100deg, var(--section) 20%, var(--raised) 45%, var(--section) 70%);
+      background-size: 220% 100%;
+      animation: shimmer 1.25s ease infinite;
     }
-    @keyframes shimmer { to { background-position-x: -230%; } }
-    .warning-panel { padding-block: 20px; border-color: color-mix(in srgb, var(--warning) 42%, var(--line)); border-radius: var(--radius); background: var(--warning-soft); box-shadow: none; }
-    .warning-list { margin: 10px 0 0; padding-left: 21px; }
+    .warning-panel { border-color: rgba(138, 93, 0, .2); background: var(--warning-soft); box-shadow: none; text-align: left; }
+    .warning-list { margin: 12px 0 0; padding-left: 21px; color: var(--ink-soft); }
     .warning-list li + li { margin-top: 6px; }
 
-    .proxy-grid { display: grid; grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr); gap: 12px; }
+    .proxy-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
     .url-card {
       min-width: 0;
       padding: 16px;
       border: 1px solid var(--line);
       border-radius: var(--radius);
-      background: var(--surface-soft);
+      background: var(--section);
     }
-    .url-card:nth-child(2) { border-color: color-mix(in srgb, var(--blue) 42%, var(--line)); background: color-mix(in srgb, var(--blue-soft) 46%, var(--surface-strong)); }
-    .url-card:nth-child(2) .output-input { font-weight: 750; }
     .field-label {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-      margin-bottom: 9px;
+      display: block;
+      margin-bottom: 8px;
       color: var(--muted);
-      font-family: var(--mono);
-      font-size: .69rem;
-      font-weight: 800;
-      letter-spacing: .05em;
-      text-transform: uppercase;
+      font-size: .72rem;
+      font-weight: 600;
     }
     .output-input {
       width: 100%;
       min-width: 0;
-      height: 42px;
+      height: 36px;
       padding: 0;
       border: 0;
       color: var(--ink);
       background: transparent;
-      outline: none;
+      outline: 0;
       font-family: var(--mono);
-      font-size: .8rem;
+      font-size: .78rem;
       text-overflow: ellipsis;
     }
-    .proxy-actions { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-top: 16px; }
-    .link-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 9px; }
-    .button-link, .secondary-link {
-      min-height: 42px;
+    .proxy-actions {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 14px;
+      margin-top: 18px;
+    }
+    .link-actions {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px 14px;
+    }
+    .button-link,
+    .secondary-link {
+      min-height: 44px;
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      gap: 7px;
-      padding: 0 14px;
-      border-radius: 11px;
-      font-size: .86rem;
-      font-weight: 800;
+      border-radius: 12px;
+      font-size: .84rem;
+      font-weight: 600;
       text-decoration: none;
+      transition: background .18s ease, border-color .18s ease, transform .18s ease;
     }
-    .button-link { border: 1px solid color-mix(in srgb, var(--accent) 72%, #000000); color: var(--accent-ink); background: var(--accent); box-shadow: var(--shadow-sm); }
-    .button-link:hover { border-color: var(--accent-strong); color: var(--accent-ink); background: var(--accent-strong); }
-    .secondary-link { border: 1px solid var(--line); color: var(--ink-soft); background: var(--surface-strong); }
-    .secondary-link:hover { border-color: var(--line-strong); color: var(--ink); }
-    .secondary-button {
-      min-height: 40px;
-      padding: 0 13px;
-      border: 1px solid var(--line);
+    .button-link {
+      padding: 0 15px;
+      border: 1px solid var(--line-strong);
       color: var(--ink);
-      background: var(--surface-strong);
+      background: var(--raised);
     }
-    .secondary-button:hover { border-color: var(--line-strong); background: var(--surface-soft); }
+    .button-link:hover { border-color: var(--ink-soft); color: var(--ink); background: var(--section); transform: translateY(-1px); }
+    .secondary-link { padding: 0 3px; color: var(--blue); }
+    .secondary-link:hover { color: var(--blue-hover); }
 
     .repo-top {
       display: grid;
       grid-template-columns: minmax(0, 1fr) auto;
-      gap: 28px;
       align-items: start;
+      gap: 24px;
     }
-    .repo-name-row { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
-    .repo-description { max-width: 760px; margin: 12px 0 0; color: var(--ink-soft); font-size: 1rem; }
-    .repo-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 9px; }
+    .repo-name-row { display: flex; align-items: center; flex-wrap: wrap; gap: 9px; }
+    .repo-description {
+      max-width: 720px;
+      margin: 12px 0 0;
+      color: var(--ink-soft);
+      font-size: 1rem;
+      line-height: 1.6;
+    }
+    .repo-actions { display: flex; align-items: center; flex-wrap: wrap; justify-content: flex-end; gap: 8px 14px; }
     .overview-grid {
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 1px;
-      margin-top: 26px;
-      padding: 1px;
-      border-radius: var(--radius);
-      background: var(--line);
-      overflow: hidden;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      margin-top: 30px;
+      border-block: 1px solid var(--line);
     }
     .metric {
       min-width: 0;
-      min-height: 86px;
-      padding: 17px 18px;
-      background: var(--surface-soft);
+      padding: 18px 14px;
+      border-right: 1px solid var(--line);
     }
-    .metric-label { display: block; margin-bottom: 7px; color: var(--muted); font-family: var(--mono); font-size: .63rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
-    .metric-value { display: block; overflow-wrap: anywhere; font-size: 1rem; font-weight: 820; }
+    .metric:first-child { padding-left: 0; }
+    .metric:last-child { border-right: 0; }
+    .metric-label { display: block; margin-bottom: 6px; color: var(--muted); font-size: .66rem; font-weight: 500; }
+    .metric-value { display: block; overflow-wrap: anywhere; font-size: .9rem; font-weight: 600; }
     .clone-box {
       display: grid;
       grid-template-columns: auto minmax(0, 1fr) auto;
       gap: 12px;
       align-items: center;
-      margin-top: 12px;
+      margin-top: 18px;
       padding: 12px 14px;
-      border: 1px solid var(--line);
-      border-radius: var(--radius-sm);
-      background: color-mix(in srgb, var(--surface-soft) 72%, var(--surface-strong));
+      border-radius: var(--radius);
+      background: var(--section);
     }
-    .clone-label { color: var(--muted); font-family: var(--mono); font-size: .66rem; font-weight: 800; text-transform: uppercase; }
-    .clone-command { min-width: 0; overflow: hidden; color: var(--ink-soft); font-family: var(--mono); font-size: .76rem; text-overflow: ellipsis; white-space: nowrap; }
+    .clone-label { color: var(--muted); font-size: .7rem; font-weight: 600; }
+    .clone-command {
+      min-width: 0;
+      overflow: hidden;
+      color: var(--ink-soft);
+      font-family: var(--mono);
+      font-size: .75rem;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
 
-    .release-list { display: grid; gap: 8px; }
+    .release-list { display: grid; gap: 10px; }
     .release-card {
       overflow: hidden;
       border: 1px solid var(--line);
-      border-radius: 13px;
-      background: color-mix(in srgb, var(--surface-soft) 68%, var(--surface-strong));
+      border-radius: var(--radius);
+      background: var(--card);
     }
-    .release-card[open] { border-color: color-mix(in srgb, var(--accent) 28%, var(--line)); background: var(--surface-soft); }
+    .release-card[open] { border-color: var(--line-strong); }
     .release-summary {
-      min-height: 70px;
-      padding: 16px 18px;
+      min-height: 72px;
+      padding: 17px 18px;
       list-style: none;
       cursor: pointer;
-      transition: background .16s ease;
+      transition: background .18s ease;
     }
     .release-summary::-webkit-details-marker { display: none; }
     .release-summary::marker { content: ""; }
     .release-summary:focus-visible { outline-offset: -4px; }
-    .release-summary:hover { background: color-mix(in srgb, var(--surface-strong) 58%, transparent); }
-    .release-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
+    .release-summary:hover { background: var(--section); }
+    .release-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 18px; }
+    .release-top > :first-child { min-width: 0; }
     .release-title { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
-    .release-meta { margin: 6px 0 0; color: var(--muted); font-family: var(--mono); font-size: .72rem; }
+    .release-meta { margin: 7px 0 0; color: var(--muted); font-size: .72rem; }
     .release-summary-side { display: flex; align-items: center; gap: 9px; }
     .release-chevron {
-      width: 30px;
-      height: 30px;
+      width: 32px;
+      height: 32px;
       display: grid;
       place-items: center;
       flex: 0 0 auto;
-      border: 1px solid var(--line);
       border-radius: 50%;
       color: var(--muted);
-      background: var(--surface-strong);
+      background: var(--section);
       font-size: 1rem;
-      font-weight: 700;
     }
     .release-chevron::before { content: "＋"; }
     .release-card[open] .release-chevron::before { content: "−"; }
     .release-body { padding: 0 18px 18px; border-top: 1px solid var(--line); }
-    .release-body-actions { display: flex; justify-content: flex-end; padding-top: 12px; }
-    .release-empty { margin: 14px 0 0; color: var(--muted); font-size: .84rem; }
-    .asset-list { display: grid; gap: 7px; margin: 14px 0 0; padding: 0; list-style: none; }
+    .release-body-actions { display: flex; justify-content: flex-end; padding-top: 10px; }
+    .release-empty { margin: 16px 0 0; color: var(--muted); font-size: .84rem; }
+    .asset-list { margin: 10px 0 0; padding: 0; list-style: none; }
     .asset-row {
+      min-height: 52px;
       display: grid;
       grid-template-columns: minmax(0, 1fr) auto auto;
       align-items: center;
-      gap: 13px;
-      min-height: 48px;
-      padding: 10px 12px;
-      border: 1px solid transparent;
-      border-radius: 9px;
-      background: color-mix(in srgb, var(--surface-strong) 82%, var(--surface));
+      gap: 14px;
+      padding: 10px 2px;
+      border-top: 1px solid var(--line);
     }
-    .asset-row:hover { border-color: var(--line); }
-    .asset-name { min-width: 0; overflow-wrap: anywhere; font-family: var(--mono); font-size: .78rem; font-weight: 700; }
-    .asset-size { color: var(--muted); font-family: var(--mono); font-size: .68rem; white-space: nowrap; }
-    .asset-link { font-size: .79rem; font-weight: 800; white-space: nowrap; }
+    .asset-row:first-child { border-top: 0; }
+    .asset-name { min-width: 0; overflow-wrap: anywhere; font-family: var(--mono); font-size: .79rem; font-weight: 600; }
+    .asset-size { color: var(--muted); font-size: .7rem; white-space: nowrap; }
+    .asset-link { min-height: 44px; display: inline-flex; align-items: center; color: var(--blue); font-size: .8rem; font-weight: 600; text-decoration: none; white-space: nowrap; }
 
     .file-tools { display: flex; align-items: center; gap: 9px; }
     .file-filter {
-      width: min(250px, 36vw);
+      width: min(250px, 34vw);
       height: 42px;
       padding: 0 13px;
-      border: 1px solid var(--line);
-      border-radius: 10px;
+      border: 1px solid var(--line-strong);
+      border-radius: 11px;
       color: var(--ink);
-      background: var(--surface-strong);
+      background: var(--raised);
       font-size: .8rem;
     }
-    .file-browser { overflow: hidden; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface-strong); }
+    .file-filter:focus { border-color: var(--blue); outline: 3px solid var(--blue-soft); outline-offset: 0; }
+    .file-browser {
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--card);
+    }
     .file-list { margin: 0; padding: 0; list-style: none; }
-    .file-list .file-list { margin-left: 27px; border-left: 1px solid var(--line); }
+    .file-list .file-list { margin-left: 28px; border-left: 1px solid var(--line); }
     .file-row {
-      min-height: 49px;
+      min-height: 52px;
       display: grid;
       grid-template-columns: minmax(0, 1fr) auto;
       align-items: center;
       gap: 12px;
-      padding: 7px 13px;
+      padding: 7px 14px;
       border-top: 1px solid var(--line);
-      background: color-mix(in srgb, var(--surface-strong) 88%, transparent);
+      transition: background .18s ease;
     }
     .file-list > .file-node:first-child > .file-row { border-top: 0; }
     .file-list .file-list > .file-node > .file-row { border-top: 1px solid var(--line); }
-    .file-row:hover { background: var(--surface-soft); }
-    .file-main { min-width: 0; display: flex; align-items: center; gap: 9px; }
+    .file-row:hover { background: var(--section); }
+    .file-main { min-width: 0; display: flex; align-items: center; gap: 10px; }
     .file-kind {
       flex: 0 0 auto;
       min-width: 34px;
-      padding: 2px 4px;
+      padding: 2px 5px;
       border: 1px solid var(--line);
-      border-radius: 7px;
+      border-radius: 6px;
       color: var(--muted);
-      background: var(--surface-soft);
+      background: var(--section);
       font-family: var(--mono);
       font-size: .58rem;
-      font-weight: 850;
+      font-weight: 600;
       text-align: center;
       text-transform: uppercase;
     }
-    .file-kind.directory { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 28%, var(--line)); background: color-mix(in srgb, var(--success-soft) 72%, var(--surface)); }
+    .file-kind.directory { color: var(--blue); border-color: rgba(0, 113, 227, .18); background: var(--blue-soft); }
     .directory-toggle {
       min-width: 0;
+      min-height: 44px;
       display: inline-flex;
       align-items: center;
       gap: 9px;
-      padding: 6px;
+      padding: 5px;
       border: 0;
-      border-radius: 8px;
+      border-radius: 9px;
       color: var(--ink);
       background: transparent;
       cursor: pointer;
       text-align: left;
     }
     .directory-toggle:hover { color: var(--blue); background: var(--blue-soft); }
-    .disclosure { width: 1em; color: var(--muted); transition: transform .16s ease; }
+    .disclosure { width: 1em; color: var(--muted); transition: transform .18s ease; }
     .directory-toggle[aria-expanded="true"] .disclosure { transform: rotate(90deg); }
-    .file-name { min-width: 0; overflow-wrap: anywhere; font-size: .87rem; font-weight: 700; }
-    .file-actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 10px; font-size: .77rem; }
-    .file-placeholder { padding: 13px 16px 13px 48px; color: var(--muted); border-top: 1px solid var(--line); font-size: .84rem; }
+    .file-name { min-width: 0; overflow-wrap: anywhere; font-size: .86rem; font-weight: 500; }
+    .file-actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 12px; font-size: .77rem; }
+    .file-actions a { min-height: 44px; display: inline-flex; align-items: center; }
+    .file-placeholder { padding: 14px 16px 14px 48px; color: var(--muted); border-top: 1px solid var(--line); font-size: .84rem; }
     .file-error { color: var(--danger); }
     .text-button { margin-left: 8px; padding: 4px 7px; border: 0; color: var(--blue); background: transparent; text-decoration: underline; text-underline-offset: 3px; }
 
     .readme-card {
       display: grid;
       grid-template-columns: minmax(0, 1fr) auto;
-      gap: 22px;
+      gap: 24px;
       align-items: center;
-      padding: 20px;
+      padding: 22px;
       border: 1px solid var(--line);
       border-radius: var(--radius);
-      background: color-mix(in srgb, var(--surface-soft) 66%, var(--surface-strong));
+      background: var(--section);
     }
-    .readme-card p { max-width: 720px; margin: 7px 0 0; color: var(--muted); font-size: .86rem; }
-    .empty-state { padding: 30px; color: var(--muted); text-align: center; border: 1px dashed var(--line-strong); border-radius: var(--radius); background: var(--surface-soft); }
-
-    footer { padding: 12px 0 38px; color: var(--muted); font-size: .76rem; }
-    .footer-inner {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 20px;
-      padding-top: 22px;
-      border-top: 1px solid var(--line);
-    }
-    .footer-code { font-family: var(--mono); }
-
-    @media (max-width: 900px) {
-      .command-panel {
-        grid-template-columns: 1fr;
-        grid-template-areas: "head" "area" "quick";
-        gap: 18px;
-      }
-      .command-head {
-        flex-direction: row;
-        align-items: center;
-        gap: 18px;
-        padding: 0 0 18px;
-        border-right: 0;
-        border-bottom: 1px solid var(--line);
-      }
-      .command-tools { justify-content: flex-end; }
+    .readme-card p { max-width: 700px; margin: 8px 0 0; color: var(--muted); font-size: .85rem; }
+    .empty-state {
+      padding: 32px 22px;
+      color: var(--muted);
+      text-align: center;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--section);
     }
 
-    @media (max-width: 720px) {
-      .shell { width: calc(100% - 24px); }
-      .hero { padding-top: 42px; }
-      .hero-grid { gap: 26px; }
-      h1 { font-size: clamp(2.55rem, 11vw, 4rem); }
-      .input-action-row { grid-template-columns: 1fr; }
-      .input-submit { width: 100%; }
-      .feature-strip { grid-template-columns: 1fr; margin-top: 20px; }
-      .feature-item { min-height: 0; padding: 18px 0; border-right: 0; border-bottom: 1px solid var(--line); }
-      .feature-item:last-child { border-bottom: 0; }
-      .results { margin-top: 28px; }
+    @keyframes enter {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes result-enter {
+      from { opacity: 0; transform: translateY(7px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes shimmer { to { background-position-x: -220%; } }
+
+    @media (max-width: 1024px) {
+      .shell { width: calc(100% - 48px); }
+      .overview-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .metric:nth-child(3) { border-right: 0; }
+      .metric:nth-child(-n+3) { border-bottom: 1px solid var(--line); }
+    }
+
+    @media (max-width: 768px) {
+      .hero { padding-top: 64px; }
+      h1 { font-size: clamp(3.05rem, 9vw, 4rem); }
       .proxy-grid { grid-template-columns: 1fr; }
       .repo-top { grid-template-columns: 1fr; }
       .repo-actions { justify-content: flex-start; }
-      .release-top { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; }
-      .release-summary-side { justify-content: flex-end; }
       .asset-row { grid-template-columns: minmax(0, 1fr) auto; }
       .asset-link { grid-column: 1 / -1; justify-self: start; }
-      .file-row { grid-template-columns: 1fr; gap: 3px; }
-      .file-actions { justify-content: flex-start; padding-left: 44px; }
       .readme-card { grid-template-columns: 1fr; }
-      .footer-inner { display: grid; }
     }
 
-    @media (max-width: 520px) {
-      .hero { padding-top: 34px; }
-      .eyebrow { margin-bottom: 14px; }
-      h1 { font-size: clamp(2.35rem, 12vw, 3.25rem); line-height: 1.04; }
-      .hero-copy { margin-top: 16px; }
-      .hero-points { gap: 8px 16px; }
-      .command-head { align-items: flex-start; gap: 12px; }
-      .command-tools { margin-left: auto; }
-      .command-note { display: none; }
-      .command-panel { padding: 18px; }
-      .input-label-note { display: none; }
-      .panel { padding: 18px; border-radius: 17px; }
-      .panel-header { display: grid; }
+    @media (max-width: 640px) {
+      .shell { width: calc(100% - 40px); }
+      main { padding-bottom: 64px; }
+      .hero { padding: 52px 0 46px; }
+      h1 { font-size: clamp(2.35rem, 11vw, 2.85rem); line-height: 1.1; letter-spacing: -.045em; }
+      .hero-copy { margin-top: 18px; font-size: 1rem; }
+      .command-panel { margin-top: 30px; padding: 18px; border-radius: 20px; }
+      .input-action-row { grid-template-columns: 1fr; }
+      .input-submit { width: 100%; min-height: 54px; }
+      .results { margin-top: 34px; }
+      .panel { padding: 22px 18px; border-radius: 20px; }
+      .panel-header { display: grid; gap: 14px; }
       .panel-header > .badge { justify-self: start; }
-      .overview-grid { grid-template-columns: repeat(2, 1fr); }
-      .metric { min-height: 78px; padding: 14px; }
-      .skeleton-grid { grid-template-columns: 1fr 1fr; }
+      .overview-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .metric:nth-child(n) { border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+      .metric:nth-child(even) { border-right: 0; }
+      .metric:nth-last-child(-n+2) { border-bottom: 0; }
       .clone-box { grid-template-columns: 1fr auto; }
       .clone-label { grid-column: 1 / -1; }
+      .release-top { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; }
+      .release-summary-side { justify-content: flex-end; }
+      .file-row { grid-template-columns: 1fr; gap: 2px; }
+      .file-actions { justify-content: flex-start; padding-left: 44px; }
       .file-tools { align-items: flex-start; flex-direction: column; }
       .file-filter { width: 100%; }
-      .file-list .file-list { margin-left: 13px; }
+      .file-list .file-list { margin-left: 14px; }
     }
 
     @media (max-width: 360px) {
-      .input-label-row { align-items: flex-start; flex-direction: column; }
-      .command-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; }
-      .command-tools { margin: 0; }
-      .overview-grid { grid-template-columns: 1fr; }
+      .shell { width: calc(100% - 32px); }
+      .hero { padding-top: 44px; }
+      .input-label-row { align-items: flex-start; }
+      .input-meta { gap: 4px; }
+      .release-top { grid-template-columns: 1fr; }
+      .release-summary-side { justify-content: space-between; }
     }
 
     @media (prefers-reduced-motion: reduce) {
       html { scroll-behavior: auto; }
-      *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+      *, *::before, *::after {
+        animation-duration: .01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: .01ms !important;
+        scroll-behavior: auto !important;
+      }
+      .primary-button:active,
+      .secondary-button:active,
+      .button-link:hover { transform: none; }
     }
   </style>
 </head>
@@ -1794,60 +1835,37 @@ function generateHomePage(input, runtimeConfig) {
   <a class="skip-link" href="#main-content">跳到主要内容</a>
   <main id="main-content" class="shell">
     <section class="hero" aria-labelledby="page-title">
-      <div class="hero-grid">
-        <div class="hero-intro">
-          <p class="eyebrow">GitHub resource workspace</p>
-          <h1 id="page-title">浏览 GitHub，<br><span class="highlight">一个链接就够。</span></h1>
-          <p class="hero-copy">公开仓库集中查看概览、Release 与文件树；Raw、Archive、Release 或 Gist 链接则直接转换为当前站点的代理地址。</p>
-        </div>
-        <div class="command-panel" aria-label="GitHub 链接处理工具">
-          <div class="command-head">
-            <div>
-              <span class="command-kicker">Link console</span>
-              <h2>从这里开始</h2>
-            </div>
-            <div class="command-tools">
-              <span class="command-note">本地识别，不保留输入历史</span>
+      <div class="hero-intro">
+        <h1 id="page-title">GitHub 资源，<br><span class="highlight">一步直达。</span></h1>
+        <p class="hero-copy">浏览仓库，获取版本与文件。只需一个链接。</p>
+      </div>
+
+      <div class="command-panel" aria-label="GitHub 链接处理工具">
+        <form id="url-form" class="url-form" autocomplete="off" novalidate>
+          <div class="input-label-row">
+            <label class="input-label" for="url-input">GitHub 链接</label>
+            <div class="input-meta">
+              <span id="input-kind" class="input-kind">等待输入</span>
               <button id="theme-toggle" class="icon-button" type="button" aria-label="切换为深色主题" title="切换主题">◐</button>
             </div>
           </div>
-          <div class="command-area">
-            <form id="url-form" class="url-form" autocomplete="off" novalidate>
-              <div class="input-label-row">
-                <label class="input-label" for="url-input"><span>GitHub 链接</span><span class="input-label-note" aria-hidden="true">公开仓库 / Raw / Release / Archive / Gist</span></label>
-                <span id="input-kind" class="input-kind">等待输入</span>
-              </div>
-              <div class="input-action-row">
-                <div class="url-field">
-                  <input id="url-input" class="url-input" name="github-resource-url" type="url" inputmode="url" autocomplete="off" aria-autocomplete="none" autocapitalize="off" spellcheck="false" placeholder="https://github.com/owner/repository" aria-describedby="input-hint" required>
-                  <button id="clear-input" class="clear-button" type="button" aria-label="清空输入" title="清空输入" hidden>×</button>
-                </div>
-                <button id="submit-button" class="primary-button input-submit" type="submit">识别并继续 →</button>
-              </div>
-              <p id="input-hint" class="form-hint" aria-live="polite">支持公开仓库，以及常见 GitHub 下载与源码资源。</p>
-            </form>
+          <div class="input-action-row">
+            <div class="url-field">
+              <input id="url-input" class="url-input" name="github-resource-url" type="url" inputmode="url" autocomplete="off" aria-autocomplete="none" autocapitalize="off" spellcheck="false" placeholder="https://github.com/owner/repository" aria-describedby="input-hint" required>
+              <button id="clear-input" class="clear-button" type="button" aria-label="清空输入" title="清空输入" hidden>×</button>
+            </div>
+            <button id="submit-button" class="primary-button input-submit" type="submit">继续 →</button>
           </div>
-
+          <p id="input-hint" class="form-hint" aria-live="polite">粘贴公开仓库或 GitHub 资源链接。</p>
           <div class="quick-links" aria-label="示例链接">
-            <span class="quick-label">示例</span>
-            <button class="example-button" type="button" data-example="https://github.com/cloudflare/workers-sdk">公开仓库</button>
+            <span class="quick-label">试试：</span>
+            <button class="example-button" type="button" data-example="https://github.com/cloudflare/workers-sdk">仓库</button>
+            <span class="quick-dot" aria-hidden="true">·</span>
             <button class="example-button" type="button" data-example="https://raw.githubusercontent.com/cloudflare/workers-sdk/main/README.md">Raw 文件</button>
-            <span class="quick-label">按 <kbd>/</kbd> 聚焦</span>
+            <span class="visually-hidden">按斜杠键可聚焦链接输入框。</span>
           </div>
-
-        </div>
-        <ul class="hero-points" aria-label="服务特点">
-          <li class="hero-point">无需 GitHub Token</li>
-          <li class="hero-point">目录按需加载</li>
-          <li class="hero-point">保留源站链接</li>
-        </ul>
+        </form>
       </div>
-    </section>
-
-    <section id="welcome" class="feature-strip" aria-label="功能说明">
-      <article class="feature-item"><span class="feature-index">01 / BROWSE</span><strong>仓库浏览</strong><p>概览、版本、文件与 README 入口集中呈现。</p></article>
-      <article class="feature-item"><span class="feature-index">02 / ROUTE</span><strong>资源代理</strong><p>保留源地址，自动生成当前部署前缀的代理 URL。</p></article>
-      <article class="feature-item"><span class="feature-index">03 / GUARD</span><strong>安全加载</strong><p>只接收支持的 HTTPS 主机，目录展开后再请求。</p></article>
     </section>
 
     <div id="results" class="results">
@@ -1856,27 +1874,27 @@ function generateHomePage(input, runtimeConfig) {
       <section id="resource-result" class="panel" aria-labelledby="resource-title" hidden>
         <div class="panel-header">
           <div>
-            <span class="section-kicker">Proxy route</span>
-            <h2 id="resource-title">代理链接已生成</h2>
-            <p class="section-caption">该地址会通过当前 Worker 安全转发。</p>
+            <span class="section-kicker">资源链接</span>
+            <h2 id="resource-title">地址已准备好</h2>
+            <p class="section-caption">复制新地址，或直接打开资源。</p>
           </div>
-          <span id="resource-kind" class="badge success">资源链接</span>
+          <span id="resource-kind" class="badge success">GitHub 资源</span>
         </div>
         <div class="proxy-grid">
           <div class="url-card">
-            <label class="field-label" for="original-output"><span>原始 URL</span><span>Source</span></label>
+            <label class="field-label" for="original-output">原始地址</label>
             <input id="original-output" class="output-input" type="text" readonly>
           </div>
           <div class="url-card">
-            <label class="field-label" for="proxy-output"><span>代理 URL</span><span>Passage</span></label>
+            <label class="field-label" for="proxy-output">Passage 地址</label>
             <input id="proxy-output" class="output-input" type="text" readonly>
           </div>
         </div>
         <div class="proxy-actions">
           <div class="link-actions">
-            <button id="copy-proxy" class="primary-button" type="button">复制代理链接</button>
-            <a id="open-proxy" class="secondary-link" href="#" target="_blank" rel="noopener noreferrer">打开代理 ↗</a>
-            <a id="open-original" class="secondary-link" href="#" target="_blank" rel="noopener noreferrer">查看原始链接 ↗</a>
+            <button id="copy-proxy" class="primary-button" type="button">复制地址</button>
+            <a id="open-proxy" class="secondary-link" href="#" target="_blank" rel="noopener noreferrer">打开资源 ↗</a>
+            <a id="open-original" class="secondary-link" href="#" target="_blank" rel="noopener noreferrer">查看原地址 ↗</a>
           </div>
           <p id="copy-status" class="form-hint" aria-live="polite"></p>
         </div>
@@ -1884,19 +1902,19 @@ function generateHomePage(input, runtimeConfig) {
 
       <div id="project-result" hidden>
         <section id="warnings-panel" class="panel warning-panel" aria-labelledby="warnings-title" hidden>
-          <span class="section-kicker">Partial response</span>
+          <span class="section-kicker">加载提示</span>
           <h2 id="warnings-title">部分信息暂不可用</h2>
           <ul id="warnings-list" class="warning-list"></ul>
         </section>
 
         <section id="overview-panel" class="panel" aria-labelledby="overview-title" hidden>
-          <span class="section-kicker">Repository overview</span>
+          <span class="section-kicker">仓库概览</span>
           <div class="repo-top">
             <div>
               <div class="repo-name-row">
                 <h2 id="overview-title">项目概览</h2>
                 <span id="repo-visibility" class="badge"></span>
-                <span id="repo-archived" class="badge warning" hidden>Archived</span>
+                <span id="repo-archived" class="badge warning" hidden>已归档</span>
               </div>
               <p id="repo-description" class="repo-description"></p>
             </div>
@@ -1907,7 +1925,7 @@ function generateHomePage(input, runtimeConfig) {
           </div>
           <div id="overview-grid" class="overview-grid"></div>
           <div class="clone-box">
-            <span class="clone-label">Proxy clone</span>
+            <span class="clone-label">克隆仓库</span>
             <code id="clone-command" class="clone-command"></code>
             <button id="copy-clone" class="secondary-button" type="button">复制命令</button>
           </div>
@@ -1917,9 +1935,9 @@ function generateHomePage(input, runtimeConfig) {
         <section id="releases-panel" class="panel" aria-labelledby="releases-title" hidden>
           <div class="panel-header">
             <div>
-              <span class="section-kicker">Ship history</span>
+              <span class="section-kicker">版本记录</span>
               <h2 id="releases-title">Releases</h2>
-              <p class="section-caption">附件下载会自动走当前站点的代理通道。</p>
+              <p class="section-caption">展开版本，查看并下载附件。</p>
             </div>
             <span id="release-count" class="badge"></span>
           </div>
@@ -1929,12 +1947,12 @@ function generateHomePage(input, runtimeConfig) {
         <section id="files-panel" class="panel" aria-labelledby="files-title" hidden>
           <div class="panel-header">
             <div>
-              <span class="section-kicker">Source tree</span>
+              <span class="section-kicker">仓库内容</span>
               <h2 id="files-title">项目文件</h2>
-              <p id="files-caption" class="section-caption">根目录 · 目录按需展开</p>
+              <p id="files-caption" class="section-caption">根目录 · 目录可展开</p>
             </div>
             <div class="file-tools">
-              <input id="file-filter" class="file-filter" type="search" placeholder="筛选根目录…" aria-label="筛选根目录文件">
+              <input id="file-filter" class="file-filter" type="search" placeholder="筛选文件…" aria-label="筛选根目录文件">
               <span id="branch-badge" class="badge"></span>
             </div>
           </div>
@@ -1944,9 +1962,9 @@ function generateHomePage(input, runtimeConfig) {
         <section id="readme-panel" class="panel" aria-labelledby="readme-title" hidden>
           <div class="panel-header">
             <div>
-              <span class="section-kicker">Documentation</span>
+              <span class="section-kicker">项目说明</span>
               <h2 id="readme-title">README</h2>
-              <p class="section-caption">为避免执行远程内容，本页只提供可信查看与下载入口。</p>
+              <p class="section-caption">查看完整内容，或获取原始文件。</p>
             </div>
           </div>
           <div id="readme-content"></div>
@@ -1955,12 +1973,6 @@ function generateHomePage(input, runtimeConfig) {
     </div>
   </main>
 
-  <footer>
-    <div class="shell footer-inner">
-      <span>链接先在浏览器中校验；仓库数据由当前 Worker 请求 GitHub API。</span>
-      <span class="footer-code">Passage / no external assets</span>
-    </div>
-  </footer>
 
   <script id="app-config" type="application/json">__APP_CONFIG__</script>
   <script>
@@ -1987,7 +1999,6 @@ function generateHomePage(input, runtimeConfig) {
     var inputHint = byId("input-hint");
     var inputKind = byId("input-kind");
     var globalStatus = byId("global-status");
-    var welcome = byId("welcome");
     var resourceResult = byId("resource-result");
     var projectResult = byId("project-result");
     var copyButton = byId("copy-proxy");
@@ -2162,7 +2173,6 @@ function generateHomePage(input, runtimeConfig) {
     }
 
     function resetResults(showWelcome) {
-      setVisible(welcome, showWelcome === true);
       setVisible(resourceResult, false);
       setVisible(projectResult, false);
       hideStatus();
@@ -2181,7 +2191,7 @@ function generateHomePage(input, runtimeConfig) {
       var orbit = makeElement("div", "status-orbit");
       orbit.setAttribute("aria-hidden", "true");
       var title = makeElement("p", "status-title", message);
-      var copy = makeElement("p", "status-copy", "正在并行获取仓库概览、Release、根目录与 README 信息。");
+      var copy = makeElement("p", "status-copy", "正在获取仓库概览、版本、文件与 README。");
       var skeletons = makeElement("div", "skeleton-grid");
       skeletons.setAttribute("aria-hidden", "true");
       for (var index = 0; index < 6; index += 1) skeletons.appendChild(makeElement("div", "skeleton"));
@@ -2265,7 +2275,7 @@ function generateHomePage(input, runtimeConfig) {
       input.removeAttribute("aria-invalid");
       if (classification.type === "project") {
         setInputHint("已识别为公开仓库，正在打开项目视图。", "success");
-        setInputKind("Repository", true);
+        setInputKind("仓库", true);
         if (!options || options.updateHistory !== false) updateAddress(classification.url, false);
         loadRepository(classification, options);
       } else if (classification.type === "resource") {
@@ -2299,7 +2309,10 @@ function generateHomePage(input, runtimeConfig) {
       lastAction = function () { renderResource(resourceUrl, kind); };
       updateInputPreview();
       setInputHint((kind || "GitHub 资源") + " · 代理地址已生成。", "success");
-      if (!options || options.scroll !== false) byId("results").scrollIntoView({ block: "start", behavior: "smooth" });
+      if (!options || options.scroll !== false) byId("results").scrollIntoView({
+        block: "start",
+        behavior: window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth"
+      });
     }
 
     async function loadRepository(classification, options) {
@@ -2354,21 +2367,25 @@ function generateHomePage(input, runtimeConfig) {
         setVisible(byId(id), true);
       });
       document.title = (repository.full_name || owner + "/" + repo) + " — Passage";
-      if (!options || options.scroll !== false) byId("results").scrollIntoView({ block: "start", behavior: "smooth" });
+      if (!options || options.scroll !== false) byId("results").scrollIntoView({
+        block: "start",
+        behavior: window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth"
+      });
     }
 
     function warningText(warning) {
       if (typeof warning === "string") return warning;
       if (!warning || typeof warning !== "object") return "部分数据加载失败。";
       var scope = warning.scope || warning.resource || warning.source || "";
-      var scopeNames = { releases: "Releases", contents: "文件目录", readme: "README" };
+      var scopeNames = { repository: "仓库概览", releases: "Releases", contents: "文件目录", readme: "README" };
       var warningMessages = {
-        github_rate_limited: "GitHub API 请求达到限额，请稍后重试或为 Worker 配置 GITHUB_TOKEN",
+        github_rate_limited: "GitHub 请求达到限额，请稍后重试",
+        github_cached_response: "GitHub 暂时不可用，正在显示近期缓存",
         github_api_unavailable: "GitHub API 暂时不可用",
         github_api_forbidden: "GitHub 拒绝了该项请求",
-        github_api_unauthorized: "Worker 的 GitHub Token 无效",
+        github_api_unauthorized: "当前服务暂时无法访问 GitHub",
         repository_not_found: "仓库不可访问",
-        invalid_github_response: "GitHub 返回的数据格式无效"
+        invalid_github_response: "GitHub 返回的信息暂时无法读取"
       };
       var message = warning.message || warning.error || warningMessages[warning.code] || "加载失败";
       return (scope ? (scopeNames[String(scope)] || String(scope)) + "：" : "") + String(message);
@@ -2699,6 +2716,11 @@ function generateHomePage(input, runtimeConfig) {
           var nested = createContentsList(contents, context, level, false);
           while (nested.firstChild) group.appendChild(nested.firstChild);
         }
+        if (Array.isArray(payload.warnings) && payload.warnings.some(function (warning) { return warning.code === "github_cached_response"; })) {
+          var cacheNote = makeElement("li", "file-placeholder", "GitHub 暂时不可用，正在显示近期缓存。");
+          cacheNote.setAttribute("role", "treeitem");
+          group.appendChild(cacheNote);
+        }
         state.loaded = true;
       } catch (error) {
         var described = describeError(error);
@@ -2731,7 +2753,7 @@ function generateHomePage(input, runtimeConfig) {
       var card = makeElement("div", "readme-card");
       var copy = makeElement("div");
       copy.appendChild(makeElement("h3", "", readme.name || "README"));
-      copy.appendChild(makeElement("p", "", "为保障页面安全，这里不会执行或渲染仓库中的 Markdown。你可以通过右侧入口查看原文或使用代理下载。"));
+      copy.appendChild(makeElement("p", "", "在 GitHub 阅读项目说明，或下载原始文件。"));
       var actions = makeElement("div", "link-actions");
       var fallbackGithub = null;
       if (readme.path && context.owner && context.repo && context.ref) {
@@ -2771,24 +2793,24 @@ function generateHomePage(input, runtimeConfig) {
       var value = input.value.trim();
       setVisible(clearButton, value.length > 0);
       if (!value) {
-        setInputHint("支持公开仓库，以及常见 GitHub 下载与源码资源。");
+        setInputHint("粘贴公开仓库或 GitHub 资源链接。");
         setInputKind("等待输入", false);
-        submitButton.textContent = "识别并继续 →";
+        submitButton.textContent = "继续 →";
         return;
       }
       var classification = classifyInput(value);
       if (classification.type === "project") {
-        setInputHint("仓库链接 · 提交后打开项目视图。", "success");
-        setInputKind("Repository", true);
+        setInputHint("仓库链接已识别。", "success");
+        setInputKind("仓库", true);
         submitButton.textContent = "浏览仓库 →";
       } else if (classification.type === "resource") {
-        setInputHint(classification.kind + " · 提交后生成代理地址。", "success");
+        setInputHint(classification.kind + " 资源已识别。", "success");
         setInputKind(classification.kind, true);
         submitButton.textContent = "生成代理 →";
       } else {
         setInputHint("继续输入完整的 GitHub HTTPS 链接。");
         setInputKind("待识别", false);
-        submitButton.textContent = "识别并继续 →";
+        submitButton.textContent = "继续 →";
       }
     }
 
@@ -2821,9 +2843,9 @@ function generateHomePage(input, runtimeConfig) {
     }
 
     function initializeTheme() {
-      var stored = "auto";
-      try { stored = window.localStorage.getItem("passage-theme") || "auto"; } catch (error) { stored = "auto"; }
-      if (stored !== "light" && stored !== "dark") stored = "auto";
+      var stored = "light";
+      try { stored = window.localStorage.getItem("passage-theme") || "light"; } catch (error) { stored = "light"; }
+      if (stored !== "light" && stored !== "dark") stored = "light";
       document.documentElement.setAttribute("data-theme", stored);
       updateThemeButton();
     }
